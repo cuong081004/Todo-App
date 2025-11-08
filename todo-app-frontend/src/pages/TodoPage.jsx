@@ -3,6 +3,7 @@ import axios from '../api/axios';
 import TaskList from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
 import { useNavigate } from 'react-router-dom';
+import CalendarView from '../components/CalendarView';
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState([]);
@@ -15,6 +16,7 @@ export default function TodoPage() {
       const res = await axios.get('/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("📦 Dữ liệu từ API:", res.data); // 👈 thêm dòng này
       setTasks(res.data);
     } catch (err) {
       if (err.response?.status === 401) navigate('/login');
@@ -25,11 +27,11 @@ export default function TodoPage() {
     fetchTasks();
   }, []);
 
-  const handleAdd = async (title) => {
+  const handleAdd = async (data) => {
+    console.log("📤 Dữ liệu gửi lên backend:", data); // 👈 thêm dòng này
     const res = await axios.post(
-      '/tasks',
-      { title },
-      { headers: { Authorization: `Bearer ${token}` } }
+      '/tasks', data,
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
     );
     setTasks([res.data, ...tasks]);
   };
@@ -61,6 +63,7 @@ export default function TodoPage() {
       <button onClick={handleLogout}>Đăng xuất</button>
       <TaskForm onAdd={handleAdd} />
       <TaskList tasks={tasks} onToggle={handleToggle} onDelete={handleDelete} />
+      <CalendarView tasks={tasks} />
     </div>
   );
 }
