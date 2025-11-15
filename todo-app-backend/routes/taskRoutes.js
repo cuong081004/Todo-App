@@ -43,18 +43,25 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// 🟢 Cập nhật task (title hoặc completed)
+// 🟢 Cập nhật task (title, completed, dueDate)
 router.patch("/:id", auth, async (req, res) => {
   try {
-    // tìm task thuộc về user hiện tại
     const task = await Task.findOne({
       _id: req.params.id,
       userId: req.user.id,
     });
+
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     if (req.body.title != null) task.title = req.body.title;
+
     if (req.body.completed != null) task.completed = req.body.completed;
+
+    if (req.body.dueDate != null) {
+      const parsedDate = new Date(req.body.dueDate);
+      parsedDate.setHours(parsedDate.getHours() + 7); // múi giờ VN
+      task.dueDate = parsedDate;
+    }
 
     const updatedTask = await task.save();
     res.json(updatedTask);
