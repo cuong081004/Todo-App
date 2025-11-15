@@ -81,3 +81,10 @@ li {
   border: 1px solid #ddd;
   border-radius: 5px;
 }
+
+.has-task {
+  background-color: #90ee90 !important; /* màu xanh nhạt */
+  border-radius: 50% !important;
+  color: black !important;
+  font-weight: bold;
+}
