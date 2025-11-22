@@ -86,3 +86,47 @@ button {
   padding: 8px 16px;
   margin-top: 8px;
 }
+
+/* 🎨 Custom Theme Variables (Light Mode) */
+:root {
+  --bg: #ffffff;
+  --text: #111111;
+  --card: #f2f2f2;
+  --input-bg: #fff;
+  --button-bg: #007bff;
+  --button-text: white;
+}
+
+/* 🌙 Dark Mode (bật bằng class .dark vào <body>) */
+body.dark {
+  --bg: #1e1e1e;
+  --text: #eaeaea;
+  --card: #2a2a2a;
+  --input-bg: #333;
+  --button-bg: #4b8bff;
+  --button-text: white;
+}
+
+/* Áp dụng biến màu chung */
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.todo-container {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 10px;
+  transition: 0.25s;
+}
+
+input, select {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid #666;
+}
+
+button {
+  background: var(--button-bg);
+  color: var(--button-text);
+}

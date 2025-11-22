@@ -4,40 +4,122 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-// Đăng ký
+/**
+ * @route   POST /api/auth/register
+ * @desc    Register new user
+ * @access  Public
+ */
 router.post('/register', async (req, res) => {
-  const { username, password } = req.body;
   try {
-    const existingUser = await User.findOne({ username });
-    if (existingUser)
-      return res.status(400).json({ message: 'Username already exists' });
+    const { username, password } = req.body;
 
-    const newUser = new User({ username, password });
+    // Validation
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username and password are required' 
+      });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username must be at least 3 characters long' 
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Password must be at least 6 characters long' 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username already exists' 
+      });
+    }
+
+    // Create new user
+    const newUser = new User({ 
+      username: username.toLowerCase(), 
+      password 
+    });
     await newUser.save();
 
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ 
+      success: true,
+      message: 'User registered successfully' 
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Register error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during registration' 
+    });
   }
 });
 
-// Đăng nhập
+/**
+ * @route   POST /api/auth/login
+ * @desc    Login user and return JWT token
+ * @access  Public
+ */
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
   try {
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    const { username, password } = req.body;
 
+    // Validation
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Username and password are required' 
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ username: username.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
+
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1d'
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ 
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        username: user.username
+      }
     });
-
-    res.json({ token });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Login error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error during login' 
+    });
   }
 });
 
