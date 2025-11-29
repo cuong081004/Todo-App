@@ -127,49 +127,66 @@ export default function TaskList({
               </div>
             </div>
           ) : (
-            <div className="view-mode">
-              <div
-                className="task-content"
-                onClick={() => onToggle(task._id, task.completed)}
-                role="button"
-                tabIndex={0}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') onToggle(task._id, task.completed);
-                }}
-              >
-                <span className="task-checkbox">
-                  {task.completed ? "✅" : "⬜"}
-                </span>
+            <>
+              {/* MAIN CONTENT - THIẾT KẾ MỚI */}
+              <div className="task-main-content">
+                {/* CHECKBOX */}
+                <div 
+                  className={`task-checkbox ${task.completed ? "checked" : ""}`}
+                  onClick={() => onToggle(task._id, task.completed)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') onToggle(task._id, task.completed);
+                  }}
+                >
+                  {task.completed ? "✓" : ""}
+                </div>
                 
-                <span className="task-title">
-                  {highlightText(task.title, search)}
-                </span>
+                {/* TEXT CONTENT */}
+                <div className="task-text-content">
+                  <span 
+                    className="task-title"
+                    onClick={() => onToggle(task._id, task.completed)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') onToggle(task._id, task.completed);
+                    }}
+                  >
+                    {highlightText(task.title, search)}
+                  </span>
 
-                {task.dueDate && (
-                  <small className="task-date">
-                    📅 {formatDate(task.dueDate)}
+                  {/* META INFO */}
+                  <div className="task-meta">
+                    {task.dueDate && (
+                      <span className="task-date">
+                        {formatDate(task.dueDate)}
+                      </span>
+                    )}
                     {isOverdue(task) && <span className="overdue-badge">Trễ hạn</span>}
-                  </small>
-                )}
+                  </div>
+
+                  {/* TAGS */}
+                  {task.tags?.length > 0 && (
+                    <div className="task-tags">
+                      {task.tags.map((tag, i) => (
+                        <span
+                          key={i}
+                          className="task-tag"
+                          style={{
+                            backgroundColor: tag.color,
+                          }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* TAGS */}
-              {task.tags?.length > 0 && (
-                <div className="task-tags">
-                  {task.tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="task-tag"
-                      style={{
-                        backgroundColor: tag.color,
-                      }}
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
+              {/* ACTIONS */}
               <div className="task-actions">
                 <button 
                   onClick={() => startEditing(task)}
@@ -186,7 +203,7 @@ export default function TaskList({
                   🗑️
                 </button>
               </div>
-            </div>
+            </>
           )}
         </li>
       ))}
