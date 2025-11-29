@@ -1,10 +1,10 @@
-import { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "../api/axios";
 import TaskList from "../components/TaskList";
 import TaskForm from "../components/TaskForm";
 import { useNavigate } from "react-router-dom";
 import CalendarView from "../components/CalendarView";
-import { ThemeContext } from "../context/ThemeContext";
+import { useTheme } from "../hooks/useTheme";
 
 export default function TodoPage() {
   const [tasks, setTasks] = useState([]);
@@ -13,56 +13,119 @@ export default function TodoPage() {
   const [sort, setSort] = useState("none");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { darkMode, setDarkMode } = useContext(ThemeContext);
 
+  const { darkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // FETCH TASKS
+  // ----------------------- REQUEST NOTIFICATION PERMISSION -----------------------
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) return;
+
+    let permission = Notification.permission;
+    if (permission === "default") {
+      await Notification.requestPermission();
+    }
+  };
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
+  // ----------------------- REGISTER WEB PUSH SUBSCRIPTION -----------------------
+  const registerWebPush = async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const reg = await navigator.serviceWorker.ready;
+
+    // Fetch VAPID public key
+    const { data } = await axios.get("/push/public-key");
+    const vapidPublicKey = data.key;
+
+    const convertKey = (base64) =>
+      Uint8Array.from(
+        atob(base64.replace(/-/g, "+").replace(/_/g, "/")),
+        (c) => c.charCodeAt(0)
+      );
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: convertKey(vapidPublicKey),
+    });
+
+    await axios.post(
+      "/push/subscribe",
+      { subscription },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    console.log("WebPush Subscribed:", subscription);
+  };
+
+  useEffect(() => {
+    if (token) registerWebPush();
+  }, [token]);
+
+  // ------------------------ SEND TASK TO SERVICE WORKER ------------------------
+  const sendTaskToSW = (task) => {
+    if (!task) return;
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.active?.postMessage({
+          type: "schedule-task",
+          payload: task,
+        });
+      });
+    }
+  };
+
+  // ------------------------------ FETCH TASKS ------------------------------
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const res = await axios.get("/tasks", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setTasks(res.data.data || res.data);
+
+      const list = Array.isArray(res.data.data) ? res.data.data : [];
+      setTasks(list);
+      list.forEach(sendTaskToSW);
     } catch (err) {
-      console.error('Fetch error:', err);
       if (err.response?.status === 401) {
-        localStorage.removeItem('token');
+        localStorage.removeItem("token");
         navigate("/login");
       } else {
-        setError('Không thể tải danh sách công việc');
+        setError("Không thể tải danh sách công việc");
       }
+      setTasks([]);
     } finally {
       setLoading(false);
     }
   }, [token, navigate]);
 
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-      return;
-    }
+    if (!token) return navigate("/login");
     fetchTasks();
-  }, [token, navigate, fetchTasks]);
+  }, [token, fetchTasks, navigate]);
 
-  // ADD TASK
+  // ------------------------------ ADD TASK ------------------------------
   const handleAdd = async (data) => {
     try {
       const res = await axios.post("/tasks", data, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const newTask = res.data.data || res.data;
+
+      const newTask = res.data.data;
       setTasks([newTask, ...tasks]);
+      sendTaskToSW(newTask);
     } catch (err) {
-      console.error('Add error:', err);
-      alert(err.response?.data?.message || 'Không thể thêm công việc');
+      alert(err.response?.data?.message || "Không thể thêm công việc");
     }
   };
 
-  // TOGGLE COMPLETED
+  // ------------------------------ TOGGLE DONE ------------------------------
   const handleToggle = async (id, completed) => {
     try {
       const res = await axios.patch(
@@ -70,178 +133,145 @@ export default function TodoPage() {
         { completed: !completed },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const updatedTask = res.data.data || res.data;
-      setTasks(tasks.map((t) => (t._id === id ? updatedTask : t)));
+
+      const updated = res.data.data;
+      setTasks(tasks.map((t) => (t._id === id ? updated : t)));
+      sendTaskToSW(updated);
     } catch (err) {
-      console.error('Toggle error:', err);
-      alert('Không thể cập nhật trạng thái');
+      console.error(err);
+      alert("Không thể cập nhật trạng thái");
     }
   };
 
-  // EDIT TASK
+  // ------------------------------ EDIT TASK ------------------------------
   const handleEdit = async (id, data) => {
     try {
       const res = await axios.patch(`/tasks/${id}`, data, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const updatedTask = res.data.data || res.data;
-      setTasks(tasks.map((t) => (t._id === id ? updatedTask : t)));
+
+      const updated = res.data.data;
+      setTasks(tasks.map((t) => (t._id === id ? updated : t)));
+      sendTaskToSW(updated);
     } catch (err) {
-      console.error('Edit error:', err);
-      alert(err.response?.data?.message || 'Không thể cập nhật công việc');
+      console.error(err);
+      alert("Không thể cập nhật công việc");
     }
   };
 
-  // DELETE TASK
+  // ------------------------------ DELETE TASK ------------------------------
   const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn xóa công việc này?')) return;
-    
+    if (!window.confirm("Bạn có chắc muốn xóa?")) return;
+
     try {
       await axios.delete(`/tasks/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setTasks(tasks.filter((t) => t._id !== id));
     } catch (err) {
-      console.error('Delete error:', err);
-      alert('Không thể xóa công việc');
+      console.error(err);
+      alert("Không thể xóa công việc");
     }
   };
 
-  // LOGOUT
+  // --------------------------- LOGOUT ---------------------------
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/login");
   };
 
-  // FILTER + SEARCH (Memoized)
+  // --------------------------- FILTER ---------------------------
   const filteredTasks = useMemo(() => {
     const now = new Date();
-    
     return tasks
-      .filter((t) => t.title?.toLowerCase().includes(search.toLowerCase()))
+      .filter((t) => t.title.toLowerCase().includes(search.toLowerCase()))
       .filter((t) => {
         if (filter === "all") return true;
-        if (filter === "completed") return t.completed === true;
-        if (filter === "incomplete") return t.completed === false;
+        if (filter === "completed") return t.completed;
+        if (filter === "incomplete") return !t.completed;
         if (filter === "withDate") return t.dueDate != null;
-        if (filter === "overdue") {
-          return t.dueDate && new Date(t.dueDate) < now && t.completed === false;
-        }
+        if (filter === "overdue")
+          return t.dueDate && new Date(t.dueDate) < now && !t.completed;
         return true;
       });
   }, [tasks, search, filter]);
 
-  // SORT (Memoized)
+  // --------------------------- SORT ---------------------------
   const sortedTasks = useMemo(() => {
-    let result = [...filteredTasks];
+    let arr = [...filteredTasks];
 
     if (sort === "date") {
-      result.sort((a, b) => {
+      arr.sort((a, b) => {
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;
         return new Date(a.dueDate) - new Date(b.dueDate);
       });
     } else if (sort === "name") {
-      result.sort((a, b) =>
+      arr.sort((a, b) =>
         a.title.localeCompare(b.title, "vi", { sensitivity: "base" })
       );
     }
 
-    return result;
+    return arr;
   }, [filteredTasks, sort]);
 
-  if (loading) {
-    return (
-      <div className="todo-container">
-        <div className="loading-spinner">Đang tải...</div>
-      </div>
-    );
-  }
+  // ------------------------------ UI ------------------------------
+  if (loading) return <div className="todo-container">Đang tải...</div>;
 
   return (
     <div className="todo-container">
       <div className="header">
         <h2>Danh sách công việc</h2>
         <div className="header-actions">
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="theme-toggle"
-            aria-label={darkMode ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
-          >
-            {darkMode ? "🌞" : "🌙"}
-          </button>
-          <button onClick={handleLogout} className="logout-btn">
-            Đăng xuất
-          </button>
+          <button onClick={toggleTheme}>{darkMode ? "🌞" : "🌙"}</button>
+          <button onClick={handleLogout}>Đăng xuất</button>
         </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      <input
-        type="text"
-        placeholder="Tìm công việc..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="search-input"
-        aria-label="Tìm kiếm công việc"
-      />
-
-      {/* FILTER */}
-      <div className="filter-buttons">
-        <button 
-          onClick={() => setFilter("all")}
-          className={filter === "all" ? "active" : ""}
-        >
-          Tất cả ({tasks.length})
-        </button>
-        <button 
-          onClick={() => setFilter("completed")}
-          className={filter === "completed" ? "active" : ""}
-        >
-          Hoàn thành ({tasks.filter(t => t.completed).length})
-        </button>
-        <button 
-          onClick={() => setFilter("incomplete")}
-          className={filter === "incomplete" ? "active" : ""}
-        >
-          Chưa hoàn thành ({tasks.filter(t => !t.completed).length})
-        </button>
-        <button 
-          onClick={() => setFilter("withDate")}
-          className={filter === "withDate" ? "active" : ""}
-        >
-          Có ngày
-        </button>
-        <button 
-          onClick={() => setFilter("overdue")}
-          className={filter === "overdue" ? "active" : ""}
-        >
-          Trễ hạn
-        </button>
-      </div>
-
-      {/* SORT */}
-      <div className="sort-container">
-        <label htmlFor="sort-select">Sắp xếp:</label>
-        <select
-          id="sort-select"
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="sort-select"
-        >
-          <option value="none">Mặc định</option>
-          <option value="date">Ngày gần nhất</option>
-          <option value="name">Tên A → Z</option>
-        </select>
-      </div>
-
-      <TaskForm onAdd={handleAdd} />
-
-      {sortedTasks.length === 0 ? (
-        <div className="empty-state">
-          {search ? "Không tìm thấy công việc" : "Chưa có công việc nào"}
+      {/* FORM CONTROL */}
+      <div className="form-card">
+        <div className="search-row-compact">
+          <input
+            type="text"
+            placeholder="🔍 Tìm công việc..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="search-input-compact"
+          />
         </div>
+
+        <div className="controls-row-compact">
+          <div className="filter-buttons-compact">
+            <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Tất cả</button>
+            <button className={filter === "completed" ? "active" : ""} onClick={() => setFilter("completed")}>Hoàn thành</button>
+            <button className={filter === "incomplete" ? "active" : ""} onClick={() => setFilter("incomplete")}>Chưa xong</button>
+            <button className={filter === "withDate" ? "active" : ""} onClick={() => setFilter("withDate")}>Có ngày</button>
+            <button className={filter === "overdue" ? "active" : ""} onClick={() => setFilter("overdue")}>Trễ hạn</button>
+          </div>
+
+          <div className="sort-container-compact">
+            <span>Sắp xếp:</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="sort-select-compact"
+            >
+              <option value="none">Mặc định</option>
+              <option value="date">Ngày gần nhất</option>
+              <option value="name">Tên A → Z</option>
+            </select>
+          </div>
+        </div>
+
+        <TaskForm onAdd={handleAdd} />
+      </div>
+
+      {/* TASK LIST */}
+      {sortedTasks.length === 0 ? (
+        <div className="empty-state">Không có công việc nào</div>
       ) : (
         <TaskList
           tasks={sortedTasks}
@@ -252,6 +282,7 @@ export default function TodoPage() {
         />
       )}
 
+      {/* CALENDAR */}
       <CalendarView tasks={tasks} />
     </div>
   );

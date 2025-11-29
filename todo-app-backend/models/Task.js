@@ -2,58 +2,59 @@ const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
   {
-    title: { 
-      type: String, 
-      required: [true, 'Task title is required'],
+    title: {
+      type: String,
+      required: [true, "Task title is required"],
       trim: true,
-      maxlength: [200, 'Task title cannot exceed 200 characters']
+      maxlength: [200, "Task title cannot exceed 200 characters"],
     },
-    completed: { 
-      type: Boolean, 
+    completed: {
+      type: Boolean,
       default: false,
-      index: true 
+      index: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true
+      index: true,
     },
-    dueDate: { 
-      type: Date, 
+    dueDate: {
+      type: Date,
       default: null,
-      index: true
+      index: true,
     },
     tags: [
       {
-        name: { 
-          type: String, 
+        name: {
+          type: String,
           required: true,
           trim: true,
-          maxlength: 50
+          maxlength: 50,
         },
-        color: { 
-          type: String, 
+        color: {
+          type: String,
           default: "#74b9ff",
           validate: {
-            validator: function(v) {
+            validator: function (v) {
               return /^#[0-9A-F]{6}$/i.test(v);
             },
-            message: props => `${props.value} is not a valid hex color!`
-          }
-        }
-      }
+            message: (props) => `${props.value} is not a valid hex color!`,
+          },
+        },
+      },
     ],
+    notified: { type: Boolean, default: false },
   },
-  { 
+  {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toObject: { virtuals: true },
   }
 );
 
 // Virtual for checking if task is overdue
-taskSchema.virtual('isOverdue').get(function() {
+taskSchema.virtual("isOverdue").get(function () {
   if (!this.dueDate || this.completed) return false;
   return new Date() > this.dueDate;
 });

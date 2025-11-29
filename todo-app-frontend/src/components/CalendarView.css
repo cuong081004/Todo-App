@@ -1,0 +1,412 @@
+/* ============================================
+   CALENDAR CONTAINER - THIẾT KẾ MỚI
+   ============================================ */
+.calendar-container {
+  margin-top: 40px;
+  padding-top: 40px;
+  border-top: 2px solid var(--border);
+  max-width: 100%;
+}
+
+.calendar-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: all 0.3s ease;
+}
+
+.calendar-card:hover {
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.calendar-title {
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+
+.calendar-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* ============================================
+   CUSTOM CALENDAR STYLES - THU NHỎ & TỐI ƯU
+   ============================================ */
+.custom-calendar {
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  background: var(--input-bg) !important;
+  font-family: inherit;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+/* Navigation */
+.custom-calendar .react-calendar__navigation {
+  display: flex;
+  height: 44px;
+  margin-bottom: 8px;
+  background: var(--light-bg);
+  border-radius: 6px;
+}
+
+.custom-calendar .react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  border: none;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.custom-calendar .react-calendar__navigation button:hover {
+  background: var(--button-bg);
+  color: white;
+}
+
+.custom-calendar .react-calendar__navigation button:disabled {
+  background: var(--light-bg);
+  color: var(--border);
+}
+
+.custom-calendar .react-calendar__navigation__label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Month view */
+.custom-calendar .react-calendar__month-view__weekdays {
+  background: var(--light-bg);
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.custom-calendar .react-calendar__month-view__weekdays__weekday {
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text);
+  text-align: center;
+}
+
+.custom-calendar .react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+  border-bottom: none;
+}
+
+/* Days */
+.custom-calendar .react-calendar__tile {
+  max-width: 100%;
+  padding: 8px 4px;
+  background: none;
+  text-align: center;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  transition: all 0.2s ease;
+  position: relative;
+  height: 36px;
+}
+
+.custom-calendar .react-calendar__tile:hover {
+  background: var(--light-hover);
+  transform: scale(1.05);
+}
+
+.custom-calendar .react-calendar__tile:enabled:hover,
+.custom-calendar .react-calendar__tile:enabled:focus {
+  background: var(--light-hover);
+}
+
+.custom-calendar .react-calendar__tile--now {
+  background: var(--button-bg) !important;
+  color: white !important;
+  font-weight: 700;
+}
+
+.custom-calendar .react-calendar__tile--active {
+  background: var(--success) !important;
+  color: white !important;
+  font-weight: 700;
+}
+
+/* Ngày hiện tại - NỔI BẬT */
+.current-day {
+  background: linear-gradient(135deg, var(--button-bg), #4b8bff) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.4);
+}
+
+.current-day:hover {
+  background: linear-gradient(135deg, var(--button-hover), #3a7de8) !important;
+  transform: scale(1.05);
+}
+
+/* NGÀY ĐƯỢC CHỌN - THÊM PHẦN NÀY */
+.selected-day {
+  background: linear-gradient(135deg, var(--success), #28a745) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
+  border: 2px solid white !important;
+}
+
+.selected-day:hover {
+  background: linear-gradient(135deg, #218838, #1e7e34) !important;
+  transform: scale(1.05);
+}
+
+/* Trường hợp ngày vừa là current-day vừa là selected-day */
+.current-day.selected-day {
+  background: linear-gradient(135deg, var(--button-bg), var(--success)) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.6);
+}
+
+/* Ngày có task - DỄ NHÌN HƠN */
+.has-task {
+  position: relative;
+  font-weight: 600 !important;
+}
+
+.has-task::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--success);
+  border-radius: 50%;
+}
+
+.has-task:not(.current-day):not(.selected-day):not(.react-calendar__tile--active) {
+  background: rgba(40, 167, 69, 0.1) !important;
+  border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+/* Weekend */
+.custom-calendar .react-calendar__month-view__days__day--weekend {
+  color: var(--error);
+}
+
+.custom-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--border);
+  opacity: 0.5;
+}
+
+/* ============================================
+   CALENDAR DETAILS - THIẾT KẾ MỚI
+   ============================================ */
+.calendar-details {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.selected-date {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+.task-list-for-day {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-day-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.task-day-item:hover {
+  background: var(--light-bg);
+  transform: translateX(4px);
+}
+
+.task-status {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.task-title-day {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.task-status.completed + .task-title-day {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.no-tasks-message {
+  text-align: center;
+  color: var(--border);
+  font-style: italic;
+  margin: 0;
+  padding: 12px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+@media (max-width: 768px) {
+  .calendar-container {
+    margin-top: 30px;
+    padding-top: 30px;
+  }
+  
+  .calendar-card {
+    padding: 20px;
+  }
+  
+  .calendar-title {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+  
+  .custom-calendar {
+    max-width: 100%;
+  }
+  
+  .calendar-details {
+    padding: 12px;
+  }
+  
+  .selected-date {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-card {
+    padding: 16px;
+  }
+  
+  .calendar-title {
+    font-size: 1.1rem;
+  }
+  
+  .custom-calendar .react-calendar__tile {
+    padding: 6px 2px;
+    font-size: 12px;
+    height: 32px;
+  }
+  
+  .task-day-item {
+    padding: 6px 10px;
+  }
+  
+  .task-title-day {
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE FIXES FOR CALENDAR
+   ============================================ */
+@media (max-width: 768px) {
+  .calendar-container {
+    margin-top: 20px;
+    padding-top: 20px;
+  }
+  
+  .calendar-card {
+    padding: 16px;
+  }
+  
+  .calendar-title {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  
+  .custom-calendar {
+    max-width: 100%;
+    font-size: 12px;
+  }
+  
+  .custom-calendar .react-calendar__tile {
+    padding: 6px 2px;
+    font-size: 11px;
+    height: 32px;
+  }
+  
+  .calendar-details {
+    padding: 12px;
+  }
+  
+  .selected-date {
+    font-size: 0.9rem;
+  }
+  
+  .task-day-item {
+    padding: 6px 10px;
+  }
+  
+  .task-title-day {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-card {
+    padding: 12px;
+  }
+  
+  .custom-calendar .react-calendar__navigation button {
+    min-width: 36px;
+    font-size: 12px;
+  }
+  
+  .custom-calendar .react-calendar__month-view__weekdays__weekday {
+    padding: 6px 2px;
+    font-size: 10px;
+  }
+}
+
+/* Thêm vào cuối file CalendarView.css */
+.task-date-small {
+  font-size: 11px;
+  color: #666;
+  margin-left: 8px;
+  font-style: italic;
+}
+
+.dark .task-date-small {
+  color: #aaa;
+}
