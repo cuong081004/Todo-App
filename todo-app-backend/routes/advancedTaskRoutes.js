@@ -665,9 +665,6 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// D:\to-do app\todo-app-backend\routes\advancedTaskRoutes.js
-// Thêm endpoint mới cho calendar với recurring support
-
 // GET tasks for calendar với recurring support
 router.get("/calendar/recurring", auth, async (req, res) => {
   try {
@@ -757,14 +754,41 @@ router.get("/calendar/recurring", auth, async (req, res) => {
             return;
           }
 
+          const dateStr = instanceDate.toISOString().split("T")[0];
+
+          // Kiểm tra xem instance này đã hoàn thành chưa
+          const isCompleted =
+            task.recurring.completedDates?.some((d) => {
+              const dDate = d.date
+                ? new Date(d.date).toISOString().split("T")[0]
+                : "";
+              return dDate === dateStr;
+            }) || false;
+
+          // Kiểm tra xem instance này bị skip chưa
+          const isSkipped =
+            task.recurring.skippedDates?.some((d) => {
+              const dDate = d.date
+                ? new Date(d.date).toISOString().split("T")[0]
+                : "";
+              return dDate === dateStr;
+            }) || false;
+
+          // Nếu bị skip, không thêm vào danh sách
+          if (isSkipped) {
+            return;
+          }
+
           processedTasks.push({
             ...task,
-            _id: `${task._id}_${instanceDate.toISOString().split("T")[0]}`,
+            _id: `${task._id}_${dateStr}`,
             dueDate: instanceDate,
             isRecurringInstance: true,
             isOriginalTask: false,
             originalTaskId: task._id,
             recurringInstanceDate: instanceDate,
+            completed: isCompleted, // QUAN TRỌNG: Gán trạng thái hoàn thành
+            status: isCompleted ? "done" : task.status,
           });
         });
       }
@@ -790,7 +814,6 @@ router.get("/calendar/recurring", auth, async (req, res) => {
     });
   }
 });
-
 // Helper function để normalize date (bỏ giờ phút giây)
 function normalizeDate(date) {
   if (!date) return null;
@@ -820,7 +843,7 @@ function getRecurringInstances(task, startDate, endDate) {
 
   // Tính các instances
   while (currentDate <= endRecurring && currentDate <= endDate) {
-    if (currentDate >= startDate && currentDate <= endDate) {
+    if (currentDate >= startDate) {
       instances.push(new Date(currentDate));
     }
 
@@ -891,19 +914,86 @@ router.patch("/recurring/:id/complete-instance", auth, async (req, res) => {
       });
     }
 
-    // Tăng completed instances count
-    if (completed && instanceDate) {
-      task.recurring.completedInstances =
-        (task.recurring.completedInstances || 0) + 1;
-
-      // Lưu thông tin instance đã hoàn thành
-      if (!task.recurring.completedDates) {
-        task.recurring.completedDates = [];
-      }
-      task.recurring.completedDates.push({
-        date: new Date(instanceDate),
-        completedAt: new Date(),
+    // Chuyển instanceDate thành date string để so sánh
+    const date = instanceDate ? new Date(instanceDate) : null;
+    if (!date || isNaN(date.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid instance date",
       });
+    }
+
+    const dateStr = date.toISOString().split("T")[0];
+
+    if (completed === true) {
+      // Đánh dấu hoàn thành
+
+      // Xoá khỏi skippedDates nếu có
+      if (task.recurring.skippedDates) {
+        task.recurring.skippedDates = task.recurring.skippedDates.filter(
+          (skipped) => {
+            const skippedDate = skipped.date ? new Date(skipped.date) : null;
+            if (!skippedDate) return true;
+            return skippedDate.toISOString().split("T")[0] !== dateStr;
+          }
+        );
+      }
+
+      // Kiểm tra xem đã tồn tại trong completedDates chưa
+      const alreadyCompleted = task.recurring.completedDates?.some((d) => {
+        const dDate = d.date ? new Date(d.date) : null;
+        if (!dDate) return false;
+        return dDate.toISOString().split("T")[0] === dateStr;
+      });
+
+      if (!alreadyCompleted) {
+        // Tăng completed instances
+        task.recurring.completedInstances =
+          (task.recurring.completedInstances || 0) + 1;
+
+        // Thêm vào completedDates
+        if (!task.recurring.completedDates) {
+          task.recurring.completedDates = [];
+        }
+        task.recurring.completedDates.push({
+          date: date,
+          completedAt: new Date(),
+        });
+      }
+    } else if (completed === false) {
+      // Bỏ đánh dấu hoàn thành
+
+      // Xoá khỏi completedDates
+      if (task.recurring.completedDates) {
+        const beforeLength = task.recurring.completedDates.length;
+        task.recurring.completedDates = task.recurring.completedDates.filter(
+          (d) => {
+            const dDate = d.date ? new Date(d.date) : null;
+            if (!dDate) return true;
+            return dDate.toISOString().split("T")[0] !== dateStr;
+          }
+        );
+
+        // Giảm completedInstances
+        const removedCount =
+          beforeLength - task.recurring.completedDates.length;
+        task.recurring.completedInstances = Math.max(
+          0,
+          (task.recurring.completedInstances || 0) - removedCount
+        );
+      }
+    }
+
+    // Cập nhật lastCompletedDate
+    if (completed === true && task.recurring.completedDates?.length > 0) {
+      const dates = task.recurring.completedDates
+        .filter((d) => d.date)
+        .map((d) => new Date(d.date).getTime());
+
+      if (dates.length > 0) {
+        const latestDate = new Date(Math.max(...dates));
+        task.recurring.lastCompletedDate = latestDate;
+      }
     }
 
     const updatedTask = await task.save();
@@ -911,13 +1001,13 @@ router.patch("/recurring/:id/complete-instance", auth, async (req, res) => {
     res.json({
       success: true,
       data: updatedTask,
-      message: "Recurring instance marked as complete",
+      message: "Recurring instance updated successfully",
     });
   } catch (err) {
     console.error("Complete recurring instance error:", err);
     res.status(500).json({
       success: false,
-      message: "Failed to complete recurring instance",
+      message: "Failed to update recurring instance",
     });
   }
 });
@@ -946,16 +1036,55 @@ router.patch("/recurring/:id/skip-instance", auth, async (req, res) => {
       });
     }
 
-    // Lưu thông tin instance bị skip
+    // Chuyển instanceDate thành date string
+    const date = instanceDate ? new Date(instanceDate) : null;
+    if (!date || isNaN(date.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid instance date",
+      });
+    }
+
+    const dateStr = date.toISOString().split("T")[0];
+
+    // Xoá khỏi completedDates nếu có (khi skip thì không tính là hoàn thành)
+    if (task.recurring.completedDates) {
+      const beforeLength = task.recurring.completedDates.length;
+      task.recurring.completedDates = task.recurring.completedDates.filter(
+        (d) => {
+          const dDate = d.date ? new Date(d.date) : null;
+          if (!dDate) return true;
+          return dDate.toISOString().split("T")[0] !== dateStr;
+        }
+      );
+
+      // Giảm completedInstances nếu có
+      const removedCount = beforeLength - task.recurring.completedDates.length;
+      task.recurring.completedInstances = Math.max(
+        0,
+        (task.recurring.completedInstances || 0) - removedCount
+      );
+    }
+
+    // Thêm vào skippedDates
     if (!task.recurring.skippedDates) {
       task.recurring.skippedDates = [];
     }
 
-    task.recurring.skippedDates.push({
-      date: new Date(instanceDate),
-      skippedAt: new Date(),
-      reason: reason || "Skipped by user",
+    // Kiểm tra xem đã bị skip chưa
+    const alreadySkipped = task.recurring.skippedDates.some((d) => {
+      const dDate = d.date ? new Date(d.date) : null;
+      if (!dDate) return false;
+      return dDate.toISOString().split("T")[0] === dateStr;
     });
+
+    if (!alreadySkipped) {
+      task.recurring.skippedDates.push({
+        date: date,
+        skippedAt: new Date(),
+        reason: reason || "Skipped by user",
+      });
+    }
 
     const updatedTask = await task.save();
 

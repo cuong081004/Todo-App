@@ -203,6 +203,16 @@ taskSchema.virtual('nextRecurringInstance').get(function() {
   return nextDate;
 });
 
+taskSchema.virtual('hasRecurringInstances').get(function() {
+  return this.recurring?.isRecurring && this.recurring.completedInstances > 0;
+});
+
+// Thêm method để lấy instances
+taskSchema.methods.getRecurringInstances = function(startDate, endDate) {
+  if (!this.recurring?.isRecurring) return [];
+  return generateRecurringInstances(this, startDate, endDate);
+};
+
 taskSchema.pre('save', function(next) {
   if (this.recurring && this.recurring.isRecurring) {
     this.recurring.nextInstanceDate = this.nextRecurringInstance;

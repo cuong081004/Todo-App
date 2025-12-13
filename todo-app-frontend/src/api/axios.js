@@ -11,8 +11,8 @@ import axios from 'axios';
 
 // Tạo instance axios với timeout
 const instance = axios.create({
-  // baseURL: 'http://localhost:5000/api',
-  baseURL: 'https://todo-app-t1g9.onrender.com/api', 
+  baseURL: 'http://localhost:5000/api',
+  // baseURL: 'https://todo-app-t1g9.onrender.com/api', 
   timeout: 30000, // TĂNG timeout lên 30 giây
   withCredentials: false,
 });
