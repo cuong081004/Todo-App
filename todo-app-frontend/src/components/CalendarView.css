@@ -1,412 +1,1141 @@
 /* ============================================
-   CALENDAR CONTAINER - THIẾT KẾ MỚI
+   MODERN ANIMATED CALENDAR DESIGN
    ============================================ */
+
 .calendar-container {
-  margin-top: 40px;
-  padding-top: 40px;
-  border-top: 2px solid var(--border);
-  max-width: 100%;
+  margin: 20px auto;
+  max-width: 1000px;
 }
 
 .calendar-card {
   background: var(--card);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px var(--shadow);
-  transition: all 0.3s ease;
 }
 
-.calendar-card:hover {
-  box-shadow: 0 4px 16px var(--shadow);
-}
-
-.calendar-title {
-  margin: 0 0 20px 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--text);
+/* Minimal Header */
+.calendar-header-minimal {
   text-align: center;
-  padding-bottom: 16px;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
   border-bottom: 2px solid var(--border);
 }
 
-.calendar-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+.month-year-display {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--button-bg), #6c5ce7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  letter-spacing: 1px;
+  animation: text-glow 3s ease-in-out infinite;
 }
 
-/* ============================================
-   CUSTOM CALENDAR STYLES - THU NHỎ & TỐI ƯU
-   ============================================ */
-.custom-calendar {
-  width: 100%;
-  max-width: 320px;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px;
-  background: var(--input-bg) !important;
-  font-family: inherit;
-  box-shadow: 0 2px 8px var(--shadow);
+@keyframes text-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
 }
 
-/* Navigation */
-.custom-calendar .react-calendar__navigation {
-  display: flex;
-  height: 44px;
-  margin-bottom: 8px;
-  background: var(--light-bg);
-  border-radius: 6px;
+/* Animated Stats */
+.stats-row-animated {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
 }
 
-.custom-calendar .react-calendar__navigation button {
-  min-width: 44px;
-  background: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  border: none;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.custom-calendar .react-calendar__navigation button:hover {
-  background: var(--button-bg);
-  color: white;
-}
-
-.custom-calendar .react-calendar__navigation button:disabled {
-  background: var(--light-bg);
-  color: var(--border);
-}
-
-.custom-calendar .react-calendar__navigation__label {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-/* Month view */
-.custom-calendar .react-calendar__month-view__weekdays {
-  background: var(--light-bg);
-  border-radius: 4px;
-  margin-bottom: 4px;
-}
-
-.custom-calendar .react-calendar__month-view__weekdays__weekday {
-  padding: 8px 4px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text);
+.stat-card {
+  background: linear-gradient(135deg, var(--light-bg), var(--card));
+  border-radius: 15px;
+  padding: 20px;
   text-align: center;
-}
-
-.custom-calendar .react-calendar__month-view__weekdays__weekday abbr {
-  text-decoration: none;
-  border-bottom: none;
-}
-
-/* Days */
-.custom-calendar .react-calendar__tile {
-  max-width: 100%;
-  padding: 8px 4px;
-  background: none;
-  text-align: center;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
   position: relative;
-  height: 36px;
+  overflow: hidden;
 }
 
-.custom-calendar .react-calendar__tile:hover {
-  background: var(--light-hover);
-  transform: scale(1.05);
+.stat-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--button-bg);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
 }
 
-.custom-calendar .react-calendar__tile:enabled:hover,
-.custom-calendar .react-calendar__tile:enabled:focus {
-  background: var(--light-hover);
-}
-
-.custom-calendar .react-calendar__tile--now {
-  background: var(--button-bg) !important;
-  color: white !important;
-  font-weight: 700;
-}
-
-.custom-calendar .react-calendar__tile--active {
-  background: var(--success) !important;
-  color: white !important;
-  font-weight: 700;
-}
-
-/* Ngày hiện tại - NỔI BẬT */
-.current-day {
-  background: linear-gradient(135deg, var(--button-bg), #4b8bff) !important;
-  color: white !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.4);
-}
-
-.current-day:hover {
-  background: linear-gradient(135deg, var(--button-hover), #3a7de8) !important;
-  transform: scale(1.05);
-}
-
-/* NGÀY ĐƯỢC CHỌN - THÊM PHẦN NÀY */
-.selected-day {
-  background: linear-gradient(135deg, var(--success), #28a745) !important;
-  color: white !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 6px rgba(40, 167, 69, 0.4);
-  border: 2px solid white !important;
-}
-
-.selected-day:hover {
-  background: linear-gradient(135deg, #218838, #1e7e34) !important;
-  transform: scale(1.05);
-}
-
-/* Trường hợp ngày vừa là current-day vừa là selected-day */
-.current-day.selected-day {
-  background: linear-gradient(135deg, var(--button-bg), var(--success)) !important;
-  color: white !important;
-  font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.6);
-}
-
-/* Ngày có task - DỄ NHÌN HƠN */
-.has-task {
-  position: relative;
-  font-weight: 600 !important;
-}
-
-.has-task::after {
+.stat-card::before {
   content: '';
   position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background: var(--success);
-  border-radius: 50%;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s ease;
 }
 
-.has-task:not(.current-day):not(.selected-day):not(.react-calendar__tile--active) {
-  background: rgba(40, 167, 69, 0.1) !important;
-  border: 1px solid rgba(40, 167, 69, 0.3);
+.stat-card:hover::before {
+  left: 100%;
 }
 
-/* Weekend */
-.custom-calendar .react-calendar__month-view__days__day--weekend {
-  color: var(--error);
+.stat-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 5px;
+  transition: transform 0.3s ease;
 }
 
-.custom-calendar .react-calendar__month-view__days__day--neighboringMonth {
-  color: var(--border);
-  opacity: 0.5;
+.stat-card:hover .stat-number {
+  transform: scale(1.1);
 }
 
-/* ============================================
-   CALENDAR DETAILS - THIẾT KẾ MỚI
-   ============================================ */
-.calendar-details {
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 16px;
-}
-
-.selected-date {
-  margin: 0 0 12px 0;
-  font-size: 1rem;
+.stat-label {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  text-align: center;
+  opacity: 0.8;
+  letter-spacing: 0.5px;
 }
 
-.task-list-for-day {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Enhanced Calendar Controls - ĐÃ SỬA */
+.calendar-controls-enhanced {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding: 15px;
+  background: var(--light-bg);
+  border-radius: 15px;
+  border: 2px solid var(--border);
+  gap: 15px;
 }
 
-.task-day-item {
+/* Thêm các class mới cho các nhóm điều khiển */
+.control-group-left,
+.control-group-center,
+.control-group-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  gap: 10px;
 }
 
-.task-day-item:hover {
-  background: var(--light-bg);
-  transform: translateX(4px);
-}
-
-.task-status {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.task-title-day {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.4;
+.control-group-left {
+  justify-content: flex-start;
   flex: 1;
 }
 
-.task-status.completed + .task-title-day {
-  text-decoration: line-through;
-  opacity: 0.7;
+.control-group-center {
+  justify-content: center;
+  flex: 2;
+  position: relative;
 }
 
-.no-tasks-message {
-  text-align: center;
-  color: var(--border);
-  font-style: italic;
-  margin: 0;
-  padding: 12px;
+.control-group-right {
+  justify-content: flex-end;
+  flex: 1;
 }
 
-/* ============================================
-   RESPONSIVE DESIGN
-   ============================================ */
-@media (max-width: 768px) {
-  .calendar-container {
-    margin-top: 30px;
-    padding-top: 30px;
+.today-btn {
+  padding: 10px 16px;
+  background: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.today-btn:hover {
+  background: var(--button-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
+}
+
+.month-year-selectors {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.nav-btn {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-btn:hover {
+  background: var(--button-bg);
+  color: white;
+  border-color: var(--button-bg);
+  transform: scale(1.1);
+}
+
+.view-toggle-btn {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-toggle-btn:hover {
+  background: var(--button-bg);
+  color: white;
+  border-color: var(--button-bg);
+  transform: rotate(15deg);
+}
+
+.month-year-btn {
+  background: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.month-year-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.5);
+  background: var(--button-hover);
+}
+
+/* Thêm nút điều hướng năm */
+.year-nav-btn {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.year-nav-btn:hover {
+  background: var(--button-bg);
+  color: white;
+  border-color: var(--button-bg);
+  transform: scale(1.1);
+}
+
+/* Modern Calendar */
+.calendar-wrapper-animated {
+  background: var(--input-bg);
+  border-radius: 18px;
+  padding: 25px;
+  border: 2px solid var(--border);
+  transition: border-color 0.3s ease;
+}
+
+.calendar-wrapper-animated:hover {
+  border-color: var(--button-bg);
+}
+
+.calendar-modern {
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Enhanced Days with animations */
+.calendar-modern .react-calendar__tile {
+  padding: 20px 10px !important;
+  background: transparent !important;
+  border: 2px solid transparent !important;
+  border-radius: 12px !important;
+  color: var(--text) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  height: 85px !important;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-modern .react-calendar__tile:hover {
+  background: var(--light-hover) !important;
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+/* Enhanced day indicators */
+.day-indicators {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-dots-container {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.task-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: transform 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.task-indicator-dot.overdue {
+  background: #d63031;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.task-indicator-dot.recurring {
+  background: #6c5ce7;
+  animation: spin 3s linear infinite;
+}
+
+.task-indicator-dot.completed {
+  background: #00b894;
+}
+
+.task-indicator-dot.regular {
+  background: var(--button-bg);
+}
+
+.day-task-count {
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--button-bg);
+  color: white;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 3px;
+  border: 1px solid white;
+}
+
+/* Stronger Today Highlight */
+.calendar-modern .react-calendar__tile.today-highlight {
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.2), rgba(0, 123, 255, 0.3)) !important;
+  border: 3px solid var(--button-bg) !important;
+  color: white !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 20px rgba(0, 123, 255, 0.5) !important;
+  position: relative;
+  z-index: 5;
+}
+
+.calendar-modern .react-calendar__tile.today-highlight::after {
+  content: "HÔM NAY";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 900;
+  color: white;
+  background: var(--button-bg);
+  padding: 1px 3px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+/* Stronger Selected Date Highlight */
+.calendar-modern .react-calendar__tile.selected-highlight {
+  background: linear-gradient(135deg, rgba(0, 184, 148, 0.3), rgba(0, 184, 148, 0.4)) !important;
+  border: 3px solid var(--success) !important;
+  color: white !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 20px rgba(0, 184, 148, 0.5) !important;
+  position: relative;
+  z-index: 5;
+}
+
+.calendar-modern .react-calendar__tile.selected-highlight::after {
+  content: "CHỌN";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 8px;
+  font-weight: 900;
+  color: white;
+  background: var(--success);
+  padding: 1px 3px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+/* Enhanced task types */
+.has-tasks {
+  border: 2px solid var(--button-bg) !important;
+}
+
+.has-recurring::before {
+  content: '✨';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 10px;
+  animation: sparkle 2s linear infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.has-overdue {
+  animation: alert 1s ease-in-out infinite;
+}
+
+@keyframes alert {
+  0%, 100% { border-color: #d63031; }
+  50% { border-color: #ff7675; }
+}
+
+.all-completed {
+  background: linear-gradient(45deg, transparent 30%, rgba(0, 184, 148, 0.1) 50%, transparent 70%) !important;
+  background-size: 200% 200% !important;
+  animation: shine 3s linear infinite;
+}
+
+@keyframes shine {
+  0% { background-position: -100% -100%; }
+  100% { background-position: 200% 200%; }
+}
+
+/* Animation classes */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes count-pop {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* MONTH/YEAR PICKER POPUP STYLES */
+.month-year-picker-popup {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  width: 400px;
+  max-width: 90vw;
+  animation: picker-slide-down 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+@keyframes picker-slide-down {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
   }
-  
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid var(--border);
+  background: linear-gradient(135deg, var(--light-bg), var(--card));
+}
+
+.picker-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.picker-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.picker-close-btn:hover {
+  background: var(--light-hover);
+  transform: rotate(90deg);
+}
+
+.picker-content {
+  padding: 20px;
+}
+
+/* Years Section */
+.years-section {
+  margin-bottom: 30px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+.years-section::-webkit-scrollbar {
+  height: 6px;
+}
+
+.years-section::-webkit-scrollbar-track {
+  background: var(--light-bg);
+  border-radius: 3px;
+}
+
+.years-section::-webkit-scrollbar-thumb {
+  background: var(--button-bg);
+  border-radius: 3px;
+}
+
+.years-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  min-width: min-content;
+}
+
+.year-item {
+  padding: 12px 8px;
+  border: 2px solid var(--border);
+  background: var(--light-bg);
+  color: var(--text);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.year-item:hover {
+  background: var(--light-hover);
+  transform: translateY(-3px);
+  border-color: var(--button-bg);
+}
+
+.year-item.active {
+  background: var(--button-bg);
+  color: white;
+  border-color: var(--button-bg);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  transform: translateY(-3px);
+}
+
+/* Months Section */
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.month-item {
+  padding: 16px 8px;
+  border: 2px solid var(--border);
+  background: var(--light-bg);
+  color: var(--text);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.month-item:hover {
+  background: var(--light-hover);
+  transform: translateY(-4px);
+  border-color: var(--button-bg);
+  box-shadow: 0 6px 16px var(--shadow);
+}
+
+.month-item.active {
+  background: var(--button-bg);
+  color: white;
+  border-color: var(--button-bg);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.4);
+  transform: translateY(-4px);
+  position: relative;
+}
+
+.month-item.active::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+}
+
+/* Day task stats */
+.day-task-stats {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.task-count-badge-mini {
+  background: var(--button-bg);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.completed-count-badge {
+  background: #28a745;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.overdue-count-badge {
+  background: #dc3545;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Sidebar with slide animation */
+.tasks-sidebar-slide {
+  background: var(--light-bg);
+  border-radius: 18px;
+  padding: 25px;
+  border: 2px solid var(--border);
+  height: fit-content;
+  animation: slide-in-right 0.5s ease-out;
+}
+
+.selected-date-animated {
+  text-align: center;
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+}
+
+.date-large {
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--button-bg);
+  margin-bottom: 10px;
+  animation: count-pop 0.5s ease-out;
+}
+
+.weekday-animated {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+
+.month-year {
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.7;
+  margin-bottom: 15px;
+}
+
+.task-count-badge {
+  display: inline-block;
+  background: var(--button-bg);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Modern Task Cards */
+.tasks-list-animated {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.task-card-modern {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 10px;
+  border: 2px solid var(--border);
+  transition: all 0.3s ease;
+  animation: slideDown 0.3s ease-out forwards;
+  opacity: 0;
+}
+
+.task-card-modern:hover {
+  border-color: var(--button-bg);
+  transform: translateX(5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.task-header-modern {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.task-checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.task-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+.task-title-modern {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.task-meta-modern {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.priority-badge {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.priority-urgent { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+.priority-high { background: rgba(253, 126, 20, 0.1); color: #fd7e14; }
+.priority-medium { background: rgba(255, 193, 7, 0.1); color: #ffc107; }
+.priority-low { background: rgba(40, 167, 69, 0.1); color: #28a745; }
+
+.time-badge {
+  padding: 4px 8px;
+  background: rgba(0, 123, 255, 0.1);
+  color: var(--button-bg);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-badge.completed {
+  background: rgba(0, 184, 148, 0.1);
+  color: #00b894;
+}
+
+.status-badge.pending {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+/* Task tags */
+.task-tags-mini {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.task-tag-mini {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Empty state */
+.empty-tasks-animated {
+  text-align: center;
+  padding: 40px 20px;
+  animation: fade-in-up 0.5s ease-out;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  opacity: 0.5;
+  animation: float 3s ease-in-out infinite;
+}
+
+.empty-subtext {
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.5;
+  margin-top: 5px;
+}
+
+/* Minimal Legend */
+.legend-minimal-fade {
+  margin-top: 30px;
+  padding: 20px;
+  background: var(--light-bg);
+  border-radius: 15px;
+  animation: fade-in-up 0.5s ease-out;
+}
+
+.legend-dots {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.today-dot {
+  background: var(--button-bg);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.selected-dot {
+  background: var(--success);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.recurring-dot {
+  background: #6c5ce7;
+  animation: spin 3s linear infinite;
+}
+
+.overdue-dot {
+  background: #d63031;
+  animation: alert 1s ease-in-out infinite;
+}
+
+/* Loading */
+.calendar-loading {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--border);
+  border-top: 4px solid var(--button-bg);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
   .calendar-card {
     padding: 20px;
   }
   
-  .calendar-title {
-    font-size: 1.2rem;
-    margin-bottom: 16px;
+  .calendar-controls-enhanced {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
   }
   
-  .custom-calendar {
-    max-width: 100%;
+  .control-group-left,
+  .control-group-center,
+  .control-group-right {
+    width: 100%;
+    justify-content: center;
   }
   
-  .calendar-details {
-    padding: 12px;
+  .control-group-left,
+  .control-group-right {
+    order: 2;
   }
   
-  .selected-date {
-    font-size: 0.95rem;
+  .control-group-center {
+    order: 1;
+  }
+  
+  .stats-row-animated {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .calendar-wrapper-animated {
+    padding: 15px;
+  }
+  
+  .calendar-modern .react-calendar__tile {
+    height: 70px !important;
+    padding: 15px 8px !important;
+    font-size: 14px !important;
+  }
+  
+  .date-large {
+    font-size: 36px;
+  }
+  
+  .month-year-selectors {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .today-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .legend-dots {
+    gap: 15px;
+  }
+  
+  /* Picker responsive */
+  .years-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .months-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .task-header-modern {
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 480px) {
-  .calendar-card {
-    padding: 16px;
+  .month-year-display {
+    font-size: 22px;
   }
   
-  .calendar-title {
-    font-size: 1.1rem;
+  .stat-card {
+    padding: 15px;
   }
   
-  .custom-calendar .react-calendar__tile {
-    padding: 6px 2px;
-    font-size: 12px;
-    height: 32px;
+  .stat-number {
+    font-size: 24px;
   }
   
-  .task-day-item {
-    padding: 6px 10px;
+  .calendar-modern .react-calendar__tile {
+    height: 60px !important;
+    padding: 10px 6px !important;
+    font-size: 12px !important;
   }
   
-  .task-title-day {
-    font-size: 12px;
-  }
-}
-
-/* ============================================
-   RESPONSIVE FIXES FOR CALENDAR
-   ============================================ */
-@media (max-width: 768px) {
-  .calendar-container {
-    margin-top: 20px;
-    padding-top: 20px;
-  }
-  
-  .calendar-card {
-    padding: 16px;
-  }
-  
-  .calendar-title {
-    font-size: 1.1rem;
-    margin-bottom: 12px;
-  }
-  
-  .custom-calendar {
-    max-width: 100%;
-    font-size: 12px;
-  }
-  
-  .custom-calendar .react-calendar__tile {
-    padding: 6px 2px;
-    font-size: 11px;
-    height: 32px;
-  }
-  
-  .calendar-details {
+  .task-card-modern {
     padding: 12px;
   }
   
-  .selected-date {
-    font-size: 0.9rem;
+  .month-year-btn {
+    min-width: 120px;
+    font-size: 14px;
+    padding: 8px 12px;
   }
   
-  .task-day-item {
-    padding: 6px 10px;
+  .legend-dots {
+    gap: 10px;
   }
   
-  .task-title-day {
-    font-size: 12px;
+  /* Picker responsive */
+  .years-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .months-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  /* Task dots */
+  .task-indicator-dot {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .task-count-badge-mini,
+  .completed-count-badge,
+  .overdue-count-badge {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
   }
 }
 
-@media (max-width: 480px) {
-  .calendar-card {
-    padding: 12px;
-  }
-  
-  .custom-calendar .react-calendar__navigation button {
-    min-width: 36px;
-    font-size: 12px;
-  }
-  
-  .custom-calendar .react-calendar__month-view__weekdays__weekday {
-    padding: 6px 2px;
-    font-size: 10px;
-  }
+/* Dark mode adjustments */
+body.dark .calendar-modern .react-calendar__tile:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Thêm vào cuối file CalendarView.css */
-.task-date-small {
-  font-size: 11px;
-  color: #666;
-  margin-left: 8px;
-  font-style: italic;
+body.dark .stat-card::before {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
 }
 
-.dark .task-date-small {
-  color: #aaa;
+/* Print styles */
+@media print {
+  .calendar-controls-enhanced,
+  .legend-minimal-fade {
+    display: none !important;
+  }
+  
+  .calendar-wrapper-animated {
+    border: none !important;
+    padding: 0 !important;
+  }
 }
