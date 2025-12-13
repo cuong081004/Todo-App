@@ -44,12 +44,14 @@ const taskRoutes = require("./routes/taskRoutes");
 const projectRoutes = require("./routes/projectRoutes"); 
 const advancedTaskRoutes = require("./routes/advancedTaskRoutes");
 const pushRoutes = require("./routes/pushRoutes");
+const goalRoutes = require("./routes/goalRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/advanced-tasks", advancedTaskRoutes);
+app.use("/api/goals", goalRoutes);
 
 // Health Check
 app.get("/health", (req, res) => {

@@ -1,12 +1,73 @@
 import { useState, useEffect } from "react";
 
 export default function UserProfileTab({ tasks, projects }) {
+  const [userInfo, setUserInfo] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Lấy thông tin user từ localStorage
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      try {
+        setUserInfo(JSON.parse(userData));
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+        setUserInfo({ username: "Người dùng" });
+      }
+    } else {
+      setUserInfo({ username: "Người dùng" });
+    }
+    
     calculateUserStats();
   }, [tasks, projects]);
+
+  // Hàm format username thành tên hiển thị
+  const formatDisplayName = (username) => {
+    if (!username) return "Người dùng";
+    
+    // Xóa ký tự đặc biệt và số
+    let displayName = username.replace(/[^a-zA-ZÀ-ỹ\s]/g, '');
+    
+    // Viết hoa chữ cái đầu
+    displayName = displayName
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    // Nếu username chỉ có chữ số hoặc ký tự đặc biệt
+    if (displayName.trim() === '') {
+      return "Người dùng";
+    }
+    
+    return displayName;
+  };
+
+  // Hàm lấy chữ cái đầu cho avatar
+  const getAvatarInitial = (username) => {
+    if (!username) return "👤";
+    
+    // Lấy chữ cái đầu tiên
+    const firstChar = username.charAt(0).toUpperCase();
+    
+    // Kiểm tra xem có phải chữ cái không
+    if (/[A-ZÀ-Ỹ]/.test(firstChar)) {
+      return firstChar;
+    }
+    
+    return "👤";
+  };
+
+  // Hàm tạo trạng thái thành viên dựa trên username
+  const getMemberStatus = (username) => {
+    if (!username) return "Thành viên mới";
+    
+    const length = username.length;
+    if (length < 5) return "Thành viên mới";
+    if (length < 8) return "Thành viên tích cực";
+    if (length < 12) return "Thành viên lâu năm";
+    return "Thành viên VIP";
+  };
 
   const calculateUserStats = () => {
     const totalTasks = tasks.length;
@@ -45,16 +106,21 @@ export default function UserProfileTab({ tasks, projects }) {
     setLoading(false);
   };
 
-  if (loading) return <div className="loading-spinner">Đang tải thông tin...</div>;
+  if (loading || !userInfo) return <div className="loading-spinner">Đang tải thông tin...</div>;
 
   return (
     <div className="user-profile-tab">
       <div className="profile-header">
         <div className="avatar-section">
-          <div className="avatar-large">👤</div>
+          <div className="avatar-large">
+            {getAvatarInitial(userInfo.username)}
+          </div>
           <div className="user-info">
-            <h2>Người dùng</h2>
-            <p className="member-since">Thành viên tích cực</p>
+            <h2>{formatDisplayName(userInfo.username)}</h2>
+            <p className="member-since">{getMemberStatus(userInfo.username)}</p>
+            <p className="username-display">
+              <small>Tên đăng nhập: {userInfo.username}</small>
+            </p>
           </div>
         </div>
       </div>

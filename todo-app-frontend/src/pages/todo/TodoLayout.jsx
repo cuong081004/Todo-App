@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import ProjectSidebar from "../../components/ProjectSidebar"; // Sửa đường dẫn
-import CreateProjectModal from "../../components/CreateProjectModal"; // Sửa đường dẫn
-import axios from "../../api/axios"; // Sửa đường dẫn
-import { useTheme } from "../../hooks/useTheme"; // Sửa đường dẫn
+import ProjectSidebar from "../../components/ProjectSidebar";
+import CreateProjectModal from "../../components/CreateProjectModal";
+import axios from "../../api/axios";
+import { useTheme } from "../../hooks/useTheme";
 
 export default function TodoLayout() {
   const [projects, setProjects] = useState([]);
@@ -70,14 +70,16 @@ export default function TodoLayout() {
   // Navigation
   const navigation = [
     { path: "/tasks", label: "Tasks", icon: "📝" },
-    { path: "/advanced-tasks", label: "Advanced Tasks", icon: "🚀" }, // THÊM DÒNG NÀY
+    { path: "/advanced-tasks", label: "Advanced Tasks", icon: "🚀" },
     { path: "/add-task", label: "Add Task", icon: "➕" },
     { path: "/calendar", label: "Calendar", icon: "📅" },
-    { path: "/analytics", label: "Analytics", icon: "📊" }, // Thêm analytics
+    { path: "/analytics", label: "Analytics", icon: "📊" },
   ];
 
+  // Cập nhật hàm logout để xóa cả user info
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user"); // Xóa user info
     navigate("/login");
   };
 

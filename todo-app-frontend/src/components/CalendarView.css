@@ -881,11 +881,13 @@
   color: #6c757d;
 }
 
-/* Task tags */
+/* Task tags - ĐÃ SỬA LỖI TRÀN NỘI DUNG */
 .task-tags-mini {
   display: flex;
   gap: 4px;
   margin-top: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .task-tag-mini {
@@ -893,6 +895,7 @@
   height: 12px;
   border-radius: 50%;
   display: inline-block;
+  flex-shrink: 0;
 }
 
 /* Empty state */
@@ -1059,6 +1062,16 @@
   .task-header-modern {
     flex-wrap: wrap;
   }
+  
+  /* Task tags responsive - THÊM */
+  .task-tags-mini {
+    gap: 3px;
+  }
+  
+  .task-tag-mini {
+    width: 10px;
+    height: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1116,6 +1129,21 @@
     height: 14px;
     font-size: 8px;
   }
+  
+  /* Task tags responsive mobile - THÊM */
+  .task-tags-mini {
+    gap: 2px;
+  }
+  
+  .task-tag-mini {
+    width: 8px;
+    height: 8px;
+  }
+  
+  /* Giới hạn số lượng tags hiển thị trên mobile */
+  .task-tags-mini .task-tag-mini:nth-child(n+6) {
+    display: none;
+  }
 }
 
 /* Dark mode adjustments */
@@ -1138,4 +1166,104 @@ body.dark .stat-card::before {
     border: none !important;
     padding: 0 !important;
   }
+}
+
+/* Enhanced task tags for calendar cards */
+.task-tags-section {
+  margin-top: 8px;
+}
+
+/* Thêm indicator khi có nhiều tags */
+.task-tags-mini.has-many-tags::after {
+  content: "+";
+  font-size: 9px;
+  color: var(--text);
+  opacity: 0.6;
+  margin-left: 2px;
+  font-weight: bold;
+}
+
+/* Task card hover effect cho tags */
+.task-card-modern:hover .task-tag-mini {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+/* Tags tooltip effect */
+.task-tag-mini {
+  position: relative;
+  cursor: help;
+}
+
+.task-tag-mini::before {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+  z-index: 1000;
+}
+
+.task-tag-mini:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Scrollbar cho tags container nếu cần */
+.task-tags-mini::-webkit-scrollbar {
+  height: 3px;
+}
+
+.task-tags-mini::-webkit-scrollbar-track {
+  background: var(--light-bg);
+  border-radius: 2px;
+}
+
+.task-tags-mini::-webkit-scrollbar-thumb {
+  background: var(--button-bg);
+  border-radius: 2px;
+}
+
+/* Task tags trong expanded view */
+.task-details-expanded .task-tags-mini {
+  margin-top: 4px;
+}
+
+/* Task footer với tags */
+.task-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.task-progress {
+  flex: 1;
+}
+
+/* Animation cho tags */
+@keyframes tag-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.task-tag-mini {
+  animation: tag-appear 0.3s ease-out;
 }

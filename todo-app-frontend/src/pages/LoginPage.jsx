@@ -12,7 +12,14 @@ export default function LoginPage() {
     e.preventDefault();
     try {
       const res = await axios.post('/auth/login', { username, password });
+      
+      // Lưu token và user info
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify({
+        id: res.data.user.id,
+        username: res.data.user.username
+      }));
+      
       navigate('/');
     } catch (err) {
       setMessage(err.response?.data?.message || 'Đăng nhập thất bại');
