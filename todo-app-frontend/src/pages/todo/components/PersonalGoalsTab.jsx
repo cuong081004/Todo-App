@@ -1,66 +1,126 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import axios from "../../../api/axios";
 
 export default function PersonalGoalsTab({ tasks }) {
-  const [goals, setGoals] = useState([
-    {
-      id: 1,
-      title: "Hoàn thành 20 task tháng này",
-      target: 20,
-      current: tasks.filter(t => {
-        const taskDate = new Date(t.createdAt);
-        const now = new Date();
-        return taskDate.getMonth() === now.getMonth() && 
-               taskDate.getFullYear() === now.getFullYear() &&
-               t.completed;
-      }).length,
-      type: "monthly_tasks",
-      period: "monthly"
-    },
-    {
-      id: 2,
-      title: "Giảm task trễ hạn dưới 5%",
-      target: 5,
-      current: tasks.length > 0 ? 
-        (tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && !t.completed).length / tasks.length) * 100 : 0,
-      type: "overdue_rate",
-      period: "ongoing"
-    },
-    {
-      id: 3,
-      title: "Duy trì streak 7 ngày",
-      target: 7,
-      current: calculateCurrentStreak(tasks),
-      type: "streak",
-      period: "weekly"
-    }
-  ]);
-
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingGoal, setEditingGoal] = useState(null);
   const [newGoal, setNewGoal] = useState({
     title: "",
     target: 10,
     type: "custom",
-    period: "monthly"
+    period: "monthly",
   });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [error, setError] = useState("");
+
+  const token = localStorage.getItem("token");
+
+  // Fetch goals từ API
+  const fetchGoals = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get("/goals", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setGoals(res.data?.data || []);
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch goals:", err);
+      setError("Không thể tải mục tiêu");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchGoals();
+  }, [fetchGoals]);
+
+  // Calculate dynamic goals
+  const calculateDynamicGoals = useCallback(() => {
+    const dynamicGoals = [];
+    
+    if (!tasks) return dynamicGoals;
+    
+    // Goal 1: Hoàn thành task tháng này
+    const thisMonth = new Date().getMonth();
+    const thisYear = new Date().getFullYear();
+    const monthlyTasksCompleted = tasks.filter(t => {
+      if (!t || !t.createdAt) return false;
+      const taskDate = new Date(t.createdAt);
+      return taskDate.getMonth() === thisMonth && 
+             taskDate.getFullYear() === thisYear &&
+             t.completed;
+    }).length;
+    
+    dynamicGoals.push({
+      id: "dynamic_monthly_tasks",
+      title: "Hoàn thành 20 task tháng này",
+      target: 20,
+      current: monthlyTasksCompleted,
+      type: "monthly_tasks",
+      period: "monthly",
+      isDynamic: true
+    });
+
+    // Goal 2: Tỷ lệ trễ hạn dưới 5%
+    const totalTasks = tasks.length;
+    const overdueTasks = tasks.filter(t => {
+      if (!t) return false;
+      return t.dueDate && 
+             new Date(t.dueDate) < new Date() && 
+             !t.completed;
+    }).length;
+    
+    const overdueRate = totalTasks > 0 ? 
+      (overdueTasks / totalTasks) * 100 : 0;
+    
+    dynamicGoals.push({
+      id: "dynamic_overdue_rate",
+      title: "Giảm task trễ hạn dưới 5%",
+      target: 5,
+      current: Math.round(overdueRate * 100) / 100, // Làm tròn 2 số thập phân
+      type: "overdue_rate",
+      period: "ongoing",
+      isDynamic: true
+    });
+
+    // Goal 3: Streak 7 ngày
+    const streak = calculateCurrentStreak(tasks);
+    dynamicGoals.push({
+      id: "dynamic_streak",
+      title: "Duy trì streak 7 ngày",
+      target: 7,
+      current: streak,
+      type: "streak",
+      period: "weekly",
+      isDynamic: true
+    });
+
+    return dynamicGoals;
+  }, [tasks]);
 
   function calculateCurrentStreak(tasks) {
+    if (!tasks || tasks.length === 0) return 0;
+    
     const today = new Date();
     let streak = 0;
     
     for (let i = 0; i < 7; i++) {
       const date = new Date();
       date.setDate(today.getDate() - i);
-      const hasCompletedTask = tasks.some(task => 
-        task.completed && 
-        task.updatedAt && 
-        new Date(task.updatedAt).toDateString() === date.toDateString()
-      );
+      const hasCompletedTask = tasks.some(task => {
+        if (!task) return false;
+        return task.completed && 
+               task.updatedAt && 
+               new Date(task.updatedAt).toDateString() === date.toDateString();
+      });
       
       if (hasCompletedTask) {
         streak++;
       } else if (i === 0) {
-        // Hôm nay chưa có task hoàn thành, streak bị break
         break;
       }
     }
@@ -68,45 +128,77 @@ export default function PersonalGoalsTab({ tasks }) {
     return streak;
   }
 
-  const addNewGoal = () => {
+  // Kết hợp goals từ API và dynamic goals
+  const allGoals = [...goals, ...calculateDynamicGoals()].filter(goal => goal != null);
+
+  const addNewGoal = async () => {
     if (!newGoal.title.trim()) {
       alert("Vui lòng nhập tên mục tiêu!");
       return;
     }
 
-    const goal = {
-      id: Date.now(),
-      title: newGoal.title.trim(),
-      target: newGoal.target,
-      current: 0,
-      type: newGoal.type,
-      period: newGoal.period
-    };
+    try {
+      const res = await axios.post("/goals", newGoal, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    setGoals([...goals, goal]);
-    setNewGoal({
-      title: "",
-      target: 10,
-      type: "custom",
-      period: "monthly"
-    });
-    setShowAddForm(false);
+      setGoals([...goals, res.data.data]);
+      setNewGoal({
+        title: "",
+        target: 10,
+        type: "custom",
+        period: "monthly",
+      });
+      setShowAddForm(false);
+      setError("");
+    } catch (err) {
+      console.error("Create goal error:", err);
+      setError(err.response?.data?.message || "Không thể tạo mục tiêu");
+    }
   };
 
-  const updateGoal = (id, updates) => {
-    setGoals(goals.map(goal => 
-      goal.id === id ? { ...goal, ...updates } : goal
-    ));
-    setEditingGoal(null);
+  const updateGoal = async (id, updates) => {
+    if (!id) return;
+    
+    try {
+      const res = await axios.patch(`/goals/${id}`, updates, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setGoals(goals.map(goal => 
+        goal._id === id ? res.data.data : goal
+      ));
+      setEditingGoal(null);
+      setError("");
+    } catch (err) {
+      console.error("Update goal error:", err);
+      setError(err.response?.data?.message || "Không thể cập nhật mục tiêu");
+    }
   };
 
-  const deleteGoal = (id) => {
-    if (window.confirm("Bạn có chắc muốn xóa mục tiêu này?")) {
-      setGoals(goals.filter(goal => goal.id !== id));
+  const deleteGoal = async (id) => {
+    if (!id) return;
+    
+    if (!window.confirm("Bạn có chắc muốn xóa mục tiêu này?")) return;
+
+    try {
+      await axios.delete(`/goals/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setGoals(goals.filter(goal => goal._id !== id));
+      setError("");
+    } catch (err) {
+      console.error("Delete goal error:", err);
+      setError(err.response?.data?.message || "Không thể xóa mục tiêu");
     }
   };
 
   const startEditing = (goal) => {
+    if (!goal || goal.isDynamic) {
+      alert("Không thể chỉnh sửa mục tiêu hệ thống");
+      return;
+    }
     setEditingGoal({ ...goal });
   };
 
@@ -115,10 +207,15 @@ export default function PersonalGoalsTab({ tasks }) {
   };
 
   const getProgressPercentage = (goal) => {
-    return Math.min((goal.current / goal.target) * 100, 100);
+    if (!goal || !goal.target || goal.target === 0) return 0;
+    
+    const progress = Math.min((goal.current / goal.target) * 100, 100);
+    return Math.round(progress * 10) / 10;
   };
 
   const getGoalStatus = (goal) => {
+    if (!goal) return "started";
+    
     const progress = getProgressPercentage(goal);
     if (progress >= 100) return "completed";
     if (progress >= 75) return "almost";
@@ -143,6 +240,15 @@ export default function PersonalGoalsTab({ tasks }) {
     { value: "ongoing", label: "Liên tục" }
   ];
 
+  if (loading) {
+    return (
+      <div className="loading-spinner">
+        <div className="spinner"></div>
+        <p>Đang tải mục tiêu...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="personal-goals-tab">
       <div className="goals-header">
@@ -154,6 +260,12 @@ export default function PersonalGoalsTab({ tasks }) {
           {showAddForm ? "✕ Hủy" : "+ Thêm mục tiêu"}
         </button>
       </div>
+
+      {error && (
+        <div className="error-message" style={{ margin: "0 0 20px 0" }}>
+          {error}
+        </div>
+      )}
 
       {/* Add Goal Form */}
       {showAddForm && (
@@ -229,18 +341,27 @@ export default function PersonalGoalsTab({ tasks }) {
 
       {/* Goals Grid */}
       <div className="goals-grid">
-        {goals.map(goal => {
+        {allGoals.map(goal => {
+          if (!goal) return null;
+          
           const progress = getProgressPercentage(goal);
           const status = getGoalStatus(goal);
+          const isDynamic = goal.isDynamic || false;
           
           return (
-            <div key={goal.id} className={`goal-card ${status}`}>
+            <div key={goal._id || goal.id} className={`goal-card ${status} ${isDynamic ? 'dynamic' : ''}`}>
+              {isDynamic && (
+                <div className="dynamic-badge" title="Mục tiêu hệ thống">
+                  🔄
+                </div>
+              )}
+              
               {/* Edit Mode */}
-              {editingGoal?.id === goal.id ? (
+              {editingGoal?._id === goal._id && !isDynamic ? (
                 <div className="goal-edit-mode">
                   <input
                     type="text"
-                    value={editingGoal.title}
+                    value={editingGoal.title || ""}
                     onChange={(e) => setEditingGoal({...editingGoal, title: e.target.value})}
                     className="edit-input"
                   />
@@ -250,7 +371,7 @@ export default function PersonalGoalsTab({ tasks }) {
                       <label>Mục tiêu:</label>
                       <input
                         type="number"
-                        value={editingGoal.target}
+                        value={editingGoal.target || 0}
                         onChange={(e) => setEditingGoal({...editingGoal, target: parseInt(e.target.value) || 0})}
                         min="1"
                         className="edit-number"
@@ -261,7 +382,7 @@ export default function PersonalGoalsTab({ tasks }) {
                       <label>Hiện tại:</label>
                       <input
                         type="number"
-                        value={editingGoal.current}
+                        value={editingGoal.current || 0}
                         onChange={(e) => setEditingGoal({...editingGoal, current: parseInt(e.target.value) || 0})}
                         min="0"
                         className="edit-number"
@@ -271,7 +392,7 @@ export default function PersonalGoalsTab({ tasks }) {
 
                   <div className="edit-actions">
                     <button 
-                      onClick={() => updateGoal(goal.id, editingGoal)}
+                      onClick={() => updateGoal(goal._id, editingGoal)}
                       className="save-edit-btn"
                     >
                       💾 Lưu
@@ -288,50 +409,60 @@ export default function PersonalGoalsTab({ tasks }) {
                 /* View Mode */
                 <>
                   <div className="goal-header">
-                    <h4>{goal.title}</h4>
+                    <h4>{goal.title || "Mục tiêu không có tên"}</h4>
                     <div className="goal-actions">
-                      <button 
-                        onClick={() => startEditing(goal)}
-                        className="edit-goal-btn"
-                        title="Sửa mục tiêu"
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        onClick={() => deleteGoal(goal.id)}
-                        className="delete-goal-btn"
-                        title="Xóa mục tiêu"
-                      >
-                        🗑️
-                      </button>
+                      {!isDynamic && (
+                        <button 
+                          onClick={() => startEditing(goal)}
+                          className="edit-goal-btn"
+                          title="Sửa mục tiêu"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                      {!isDynamic && (
+                        <button 
+                          onClick={() => deleteGoal(goal._id)}
+                          className="delete-goal-btn"
+                          title="Xóa mục tiêu"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </div>
                   
                   <div className="goal-progress">
                     <div className="progress-info">
                       <span className="progress-text">
-                        {goal.current}/{goal.target}
+                        {(goal.current || 0)}/{(goal.target || 0)}
                       </span>
                       <span className="progress-percentage">
-                        {progress.toFixed(0)}%
+                        {progress}%
                       </span>
                     </div>
                     <div className="progress-bar">
                       <div 
                         className="progress-fill" 
-                        style={{ width: `${progress}%` }}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
                       ></div>
                     </div>
                   </div>
                   
                   <div className="goal-meta">
-                    <span className="goal-type">{getGoalTypes().find(t => t.value === goal.type)?.label}</span>
-                    <span className="goal-period">{getPeriods().find(p => p.value === goal.period)?.label}</span>
+                    <span className="goal-type">
+                      {getGoalTypes().find(t => t.value === goal.type)?.label || "Tuỳ chỉnh"}
+                    </span>
+                    <span className="goal-period">
+                      {getPeriods().find(p => p.value === goal.period)?.label || "Hàng tháng"}
+                    </span>
                   </div>
                   
                   <div className="goal-status">
                     {status === "completed" && (
-                      <span className="status-badge completed">✅ Đã hoàn thành</span>
+                      <span className="status-badge completed">
+                        {isDynamic ? "✅ Đạt được" : "✅ Đã hoàn thành"}
+                      </span>
                     )}
                     {status === "almost" && (
                       <span className="status-badge almost">🎯 Sắp hoàn thành</span>
@@ -372,7 +503,7 @@ export default function PersonalGoalsTab({ tasks }) {
           <div className="stats-cards">
             <div className="stat-card">
               <div className="stat-number">
-                {goals.filter(g => getGoalStatus(g) === "completed").length}
+                {goals.filter(g => g.completed).length}
               </div>
               <div className="stat-label">Đã hoàn thành</div>
             </div>

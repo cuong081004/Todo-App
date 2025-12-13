@@ -5,7 +5,7 @@ export default function ProjectSidebar({
   selectedProject, 
   onSelectProject, 
   onCreateProject,
-  onDeleteProject, // THÊM PROP MỚI
+  onDeleteProject,
   taskCount 
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -27,6 +27,27 @@ export default function ProjectSidebar({
 
   const cancelDelete = () => {
     setShowDeleteConfirm(null);
+  };
+
+  // Hàm tính màu chữ tương phản dựa trên màu nền
+  const getContrastColor = (hexColor) => {
+    if (!hexColor || !hexColor.startsWith('#')) return '#ffffff';
+    
+    try {
+      // Convert hex to RGB
+      const r = parseInt(hexColor.substr(1, 2), 16);
+      const g = parseInt(hexColor.substr(3, 2), 16);
+      const b = parseInt(hexColor.substr(5, 2), 16);
+      
+      // Tính độ sáng
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      
+      // Trả về màu trắng hoặc đen dựa trên độ sáng
+      return brightness > 128 ? '#000000' : '#FFFFFF';
+    } catch (error) {
+      console.error("Error calculating contrast color:", error);
+      return '#ffffff';
+    }
   };
 
   return (
@@ -56,6 +77,11 @@ export default function ProjectSidebar({
           <div 
             className={`project-item ${!selectedProject ? 'active' : ''}`}
             onClick={() => onSelectProject(null)}
+            style={!selectedProject ? {
+              backgroundColor: 'var(--button-bg)',
+              color: 'white',
+              borderColor: 'var(--button-bg)'
+            } : {}}
           >
             <span className="project-color all-tasks">📝</span>
             <span className="project-name">Tất cả task</span>
@@ -72,6 +98,7 @@ export default function ProjectSidebar({
               showDeleteConfirm={showDeleteConfirm === project._id}
               onConfirmDelete={confirmDelete}
               onCancelDelete={cancelDelete}
+              getContrastColor={getContrastColor}
             />
           ))}
         </div>
@@ -87,22 +114,54 @@ function ProjectItem({
   onDelete, 
   showDeleteConfirm,
   onConfirmDelete,
-  onCancelDelete 
+  onCancelDelete,
+  getContrastColor
 }) {
+  const projectColor = project.color || '#74b9ff';
+  const contrastColor = getContrastColor(projectColor);
+  const isDarkColor = contrastColor === '#FFFFFF';
+
   return (
     <div 
-      className={`project-item ${isSelected ? 'active' : ''}`}
+      className={`project-item ${isSelected ? 'active' : ''} ${isDarkColor ? 'dark-bg' : 'light-bg'}`}
       onClick={onClick}
+      style={
+        isSelected ? {
+          backgroundColor: projectColor,
+          color: contrastColor,
+          borderColor: projectColor,
+          boxShadow: `0 4px 12px ${projectColor}40`
+        } : {
+          borderLeftColor: projectColor,
+          borderLeftWidth: '4px'
+        }
+      }
     >
       <span 
         className="project-color" 
-        style={{backgroundColor: project.color}}
+        style={{
+          backgroundColor: projectColor,
+          borderColor: isSelected ? contrastColor : 'var(--border)',
+          boxShadow: isSelected ? `0 0 0 2px ${contrastColor}40` : 'none'
+        }}
         title={project.name}
-      ></span>
-      <span className="project-name">{project.name}</span>
-      <span className="task-count">{project.taskCount || 0}</span>
+      >
+        {project.isFavorite && !showDeleteConfirm && (
+          <span className="favorite-badge" style={{ color: contrastColor }}>
+            ★
+          </span>
+        )}
+      </span>
       
-      {project.isFavorite && <span className="favorite-icon">⭐</span>}
+      <span className="project-name">{project.name}</span>
+      <span className="task-count" style={
+        isSelected ? {
+          backgroundColor: `${contrastColor}20`,
+          color: contrastColor
+        } : {}
+      }>
+        {project.taskCount || 0}
+      </span>
       
       {/* Nút xóa project */}
       {!showDeleteConfirm ? (
@@ -110,6 +169,7 @@ function ProjectItem({
           className="delete-project-btn"
           onClick={(e) => onDelete(project._id, e)}
           title="Xóa dự án"
+          style={isSelected ? { color: contrastColor } : {}}
         >
           🗑️
         </button>
@@ -119,6 +179,7 @@ function ProjectItem({
             className="confirm-delete-btn"
             onClick={() => onConfirmDelete(project._id)}
             title="Xác nhận xóa"
+            style={isSelected ? { color: contrastColor } : {}}
           >
             ✓
           </button>
@@ -126,6 +187,7 @@ function ProjectItem({
             className="cancel-delete-btn"
             onClick={onCancelDelete}
             title="Hủy"
+            style={isSelected ? { color: contrastColor } : {}}
           >
             ✗
           </button>

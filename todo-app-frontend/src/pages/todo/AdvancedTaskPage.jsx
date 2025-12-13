@@ -145,7 +145,7 @@ export default function AdvancedTaskPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Refresh tasks để lấy dữ liệu mới
+      // Refresh tasks để lấy dữ liệu mới nhất từ server
       await fetchTasks();
       
       // Cập nhật selectedTask nếu đang mở modal
@@ -181,7 +181,7 @@ export default function AdvancedTaskPage() {
     setView("list");
   };
 
-  // Toggle task completion với xử lý checklist
+  // ========== TOGGLE TASK COMPLETION VỚI CHECKLIST SYNC ==========
   const handleToggle = async (id, completed) => {
     try {
       const task = tasks.find(t => t._id === id);
@@ -189,19 +189,36 @@ export default function AdvancedTaskPage() {
       
       const newCompleted = !completed;
       
-      // Nếu task có checklist và tất cả đã hoàn thành, thì task hoàn thành
-      let shouldComplete = newCompleted;
+      // QUAN TRỌNG: Nếu task có checklist, đánh dấu tất cả items hoàn thành
+      let checklistToUpdate = task.checklist;
       if (task.checklist && task.checklist.length > 0) {
-        const allChecklistCompleted = task.checklist.every(item => item.completed);
-        shouldComplete = allChecklistCompleted ? true : newCompleted;
+        // Tạo checklist mới với tất cả items được đánh dấu hoàn thành/non-completed
+        checklistToUpdate = task.checklist.map(item => ({
+          ...item,
+          completed: newCompleted,
+          completedAt: newCompleted ? new Date() : null
+        }));
+        
+        console.log(`🔄 Đồng bộ checklist: ${checklistToUpdate.length} items -> ${newCompleted ? 'completed' : 'not completed'}`);
       }
+      
+      // Dữ liệu cập nhật
+      const updateData = {
+        completed: newCompleted,
+        status: newCompleted ? "done" : "todo",
+        checklist: checklistToUpdate // Gửi checklist đã cập nhật
+      };
+      
+      console.log('📤 Sending update data:', {
+        id,
+        newCompleted,
+        checklistLength: checklistToUpdate?.length || 0,
+        allItemsCompleted: checklistToUpdate?.every(item => item.completed) || false
+      });
       
       const res = await axios.patch(
         `/advanced-tasks/${id}`,
-        { 
-          completed: shouldComplete,
-          status: shouldComplete ? "done" : "todo" 
-        },
+        updateData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -217,12 +234,15 @@ export default function AdvancedTaskPage() {
       const detail = {
         type: 'advancedTaskUpdated',
         taskId: id,
-        completed: shouldComplete,
+        completed: newCompleted,
+        checklistSynced: true,
         timestamp: new Date().toISOString()
       };
       
       window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
+      
+      console.log(`✅ Task "${task.title}" ${newCompleted ? 'hoàn thành' : 'bỏ hoàn thành'} với checklist đồng bộ`);
       
     } catch (err) {
       console.error("Toggle task error:", err);
@@ -277,7 +297,7 @@ export default function AdvancedTaskPage() {
     handleCloseDetail();
   };
 
-  // Toggle checklist item với đồng bộ hoàn thành task
+  // ========== TOGGLE CHECKLIST ITEM VỚI ĐỒNG BỘ TASK ==========
   const handleChecklistToggle = async (taskId, checklistIndex) => {
     try {
       const task = tasks.find((t) => t._id === taskId);
@@ -288,11 +308,44 @@ export default function AdvancedTaskPage() {
       const completed = !task.checklist[checklistIndex].completed;
 
       // Gọi API cập nhật checklist item
-      await axios.patch(
+      const res = await axios.patch(
         `/advanced-tasks/${taskId}/checklist`,
         { checklistIndex, completed },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      // Kiểm tra xem tất cả checklist items đã hoàn thành chưa
+      const updatedTask = res.data.data;
+      const allCompleted = updatedTask.checklist && 
+                          updatedTask.checklist.length > 0 && 
+                          updatedTask.checklist.every(item => item.completed);
+      
+      // Nếu tất cả checklist đã hoàn thành, tự động mark task là completed
+      if (allCompleted && !updatedTask.completed) {
+        console.log('✅ Tất cả checklist đã hoàn thành, tự động mark task completed');
+        
+        await axios.patch(
+          `/advanced-tasks/${taskId}`,
+          { 
+            completed: true,
+            status: "done"
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } 
+      // Nếu task đang completed nhưng checklist chưa hoàn thành hết, bỏ completed
+      else if (!allCompleted && updatedTask.completed) {
+        console.log('↩️ Checklist chưa hoàn thành hết, bỏ completed task');
+        
+        await axios.patch(
+          `/advanced-tasks/${taskId}`,
+          { 
+            completed: false,
+            status: "in_progress"
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
 
       // QUAN TRỌNG: Refresh tasks để lấy dữ liệu mới
       await fetchTasks();
@@ -301,12 +354,14 @@ export default function AdvancedTaskPage() {
       const detail = {
         type: 'taskChecklistUpdated',
         taskId,
-        completed,
+        completed: allCompleted,
         timestamp: new Date().toISOString()
       };
       
       window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
       window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
+      
+      console.log(`✅ Checklist item ${checklistIndex} ${completed ? 'hoàn thành' : 'bỏ hoàn thành'}`);
       
     } catch (err) {
       console.error("Toggle checklist error:", err);

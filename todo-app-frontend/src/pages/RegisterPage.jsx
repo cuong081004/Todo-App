@@ -11,9 +11,21 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Đăng ký tài khoản
       await axios.post('/auth/register', { username, password });
-      setMessage('Đăng ký thành công! Chuyển đến đăng nhập...');
-      setTimeout(() => navigate('/login'), 1500);
+      
+      // Tự động đăng nhập sau khi đăng ký
+      const loginRes = await axios.post('/auth/login', { username, password });
+      
+      // Lưu token và user info
+      localStorage.setItem('token', loginRes.data.token);
+      localStorage.setItem('user', JSON.stringify({
+        id: loginRes.data.user.id,
+        username: loginRes.data.user.username
+      }));
+      
+      setMessage('Đăng ký thành công! Đang chuyển hướng...');
+      setTimeout(() => navigate('/'), 1500);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Đăng ký thất bại');
     }

@@ -99,7 +99,7 @@ router.get("/", auth, async (req, res) => {
       completed,
       includeRecurring = "false",
       timeframe = "future",
-      hideOriginalRecurring = "false" // ✅ THÊM PARAM MỚI
+      hideOriginalRecurring = "false"
     } = req.query;
 
     console.log("📋 GET /tasks params:", {
@@ -146,11 +146,10 @@ router.get("/", auth, async (req, res) => {
 
     const originalTasksQuery = Task.find(filter);
 
-if (shouldHideOriginalRecurring) {
-  // Đúng cách để filter nested field
-  originalTasksQuery.where("recurring.isRecurring").ne(true);
-  console.log("🚫 Hiding original recurring tasks - using proper MongoDB query");
-}
+    if (shouldHideOriginalRecurring) {
+      originalTasksQuery.where("recurring.isRecurring").ne(true);
+      console.log("🚫 Hiding original recurring tasks - using proper MongoDB query");
+    }
 
     const originalTasks = await originalTasksQuery
       .sort({ createdAt: -1 })
@@ -254,6 +253,7 @@ if (shouldHideOriginalRecurring) {
     });
   }
 });
+
 // ---------------- GET TASKS FOR CALENDAR (NO PAGINATION) ----------------
 router.get("/calendar", auth, async (req, res) => {
   try {
@@ -343,7 +343,7 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
-// ---------------- UPDATE TASK - ĐÃ SỬA ĐỂ TỰ ĐỘNG ĐỒNG BỘ STATUS/COMPLETED ----------------
+// ---------------- UPDATE TASK - CẢI THIỆN ĐỒNG BỘ CHECKLIST ----------------
 router.patch("/:id", auth, async (req, res) => {
   try {
     const task = await Task.findOne({
@@ -357,34 +357,43 @@ router.patch("/:id", auth, async (req, res) => {
 
     console.log("🔄 Updating task:", {
       id: task._id,
-      current: { completed: task.completed, status: task.status },
+      current: { 
+        completed: task.completed, 
+        status: task.status,
+        checklist: task.checklist ? `${task.checklist.filter(item => item.completed).length}/${task.checklist.length}` : 'no checklist'
+      },
       update: req.body
     });
 
-    // Update title
-    if (req.body.title !== undefined) {
-      const title = String(req.body.title).trim();
-      if (!title) {
-        return res.status(400).json({ success: false, message: "Title empty" });
-      }
-      task.title = title;
-    }
-
-    // Update completed - TỰ ĐỘNG CẬP NHẬT STATUS
+    // QUAN TRỌNG: Xử lý completed với checklist
     if (req.body.completed !== undefined) {
       const newCompleted = Boolean(req.body.completed);
       
-      // If toggling from completed -> incomplete, reset notified
-      if (task.completed === true && newCompleted === false) {
-        task.notified = false;
-        task.status = "todo"; // Reset status khi bỏ completed
-      }
-      
-      task.completed = newCompleted;
-      
-      // Tự động cập nhật status khi completed
+      // Nếu đánh dấu hoàn thành task
       if (newCompleted === true) {
+        task.completed = true;
         task.status = "done";
+        
+        // QUAN TRỌNG: Đánh dấu tất cả checklist items hoàn thành
+        if (task.checklist && task.checklist.length > 0) {
+          task.checklist = task.checklist.map(item => ({
+            ...item,
+            completed: true,
+            completedAt: item.completed ? item.completedAt : new Date()
+          }));
+          console.log("✅ Đã đánh dấu tất cả checklist items hoàn thành");
+        }
+        
+        task.notified = true;
+      } 
+      // Nếu bỏ hoàn thành task
+      else if (newCompleted === false) {
+        task.completed = false;
+        task.status = "todo";
+        task.notified = false;
+        
+        // QUAN TRỌNG: Bỏ đánh dấu tất cả checklist items (tuỳ chọn)
+        // Giữ nguyên trạng thái checklist để user có thể tick lại từng item
       }
     }
 
@@ -400,10 +409,29 @@ router.patch("/:id", auth, async (req, res) => {
       // Tự động cập nhật completed dựa trên status
       if (req.body.status === "done") {
         task.completed = true;
+        
+        // QUAN TRỌNG: Đánh dấu tất cả checklist items hoàn thành
+        if (task.checklist && task.checklist.length > 0) {
+          task.checklist = task.checklist.map(item => ({
+            ...item,
+            completed: true,
+            completedAt: item.completed ? item.completedAt : new Date()
+          }));
+          console.log("✅ Đã đánh dấu tất cả checklist items hoàn thành khi status = done");
+        }
       } else if (task.completed === true) {
         // Nếu status không phải "done" nhưng task đang completed, reset completed
         task.completed = false;
       }
+    }
+
+    // Update title
+    if (req.body.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) {
+        return res.status(400).json({ success: false, message: "Title empty" });
+      }
+      task.title = title;
     }
 
     // Update tags
@@ -439,7 +467,11 @@ router.patch("/:id", auth, async (req, res) => {
     console.log("💾 Saving task update:", {
       title: task.title,
       completed: task.completed,
-      status: task.status
+      status: task.status,
+      checklist: task.checklist ? task.checklist.map(item => ({ 
+        text: item.text, 
+        completed: item.completed 
+      })) : []
     });
 
     const updated = await task.save();
@@ -448,7 +480,10 @@ router.patch("/:id", auth, async (req, res) => {
       id: updated._id,
       title: updated.title,
       completed: updated.completed,
-      status: updated.status
+      status: updated.status,
+      checklistProgress: updated.checklist ? 
+        `${updated.checklist.filter(item => item.completed).length}/${updated.checklist.length}` : 
+        'no checklist'
     });
     
     res.json({ success: true, data: updated });

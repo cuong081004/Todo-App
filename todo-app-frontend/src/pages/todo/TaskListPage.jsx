@@ -154,7 +154,47 @@ export default function TaskListPage() {
     };
   }, [fetchTasks]);
 
-  // ========== SỬA LỖI: HÀM TOGGLE HOÀN CHỈNH ==========
+  // Helper function để đồng bộ checklist
+  const syncChecklistOnCompletion = (task, completed) => {
+    if (!task || !task.checklist || task.checklist.length === 0) {
+      return task;
+    }
+    
+    const updatedTask = { ...task };
+    
+    if (completed === true) {
+      // Đánh dấu tất cả checklist items hoàn thành
+      updatedTask.checklist = updatedTask.checklist.map(item => ({
+        ...item,
+        completed: true,
+        completedAt: item.completed ? item.completedAt : new Date().toISOString()
+      }));
+      console.log("✅ Tự động đánh dấu tất cả checklist items hoàn thành");
+    } else if (completed === false) {
+      // Bỏ đánh dấu tất cả checklist items
+      updatedTask.checklist = updatedTask.checklist.map(item => ({
+        ...item,
+        completed: false,
+        completedAt: null
+      }));
+      console.log("↩️ Tự động bỏ đánh dấu tất cả checklist items");
+    }
+    
+    return updatedTask;
+  };
+
+  // Helper function để xác định có cần đồng bộ checklist không
+  const shouldSyncChecklist = (task, newCompleted) => {
+    if (!task || !task.checklist || task.checklist.length === 0) {
+      return false;
+    }
+    
+    // Chỉ đồng bộ khi trạng thái completed thay đổi
+    const currentCompleted = task.completed || false;
+    return currentCompleted !== newCompleted;
+  };
+
+  // ========== HÀM TOGGLE HOÀN CHỈNH (ĐÃ THÊM CHECKLIST SYNC) ==========
   const handleToggle = async (task) => {
     try {
       const newCompleted = !task.completed;
@@ -168,7 +208,8 @@ export default function TaskListPage() {
         instanceDate: task.instanceDate,
         dueDate: task.dueDate,
         completed: task.completed,
-        recurring: task.recurring
+        recurring: task.recurring,
+        checklist: task.checklist ? `${task.checklist.length} items` : 'no checklist'
       });
       
       // Kiểm tra nếu là instance nhưng thiếu originalTaskId
@@ -185,7 +226,8 @@ export default function TaskListPage() {
         originalTaskId: task.originalTaskId,
         instanceDate: task.instanceDate || task.dueDate,
         currentCompleted: task.completed,
-        newCompleted: newCompleted
+        newCompleted: newCompleted,
+        hasChecklist: task.checklist && task.checklist.length > 0
       });
       
       if (task.isRecurringInstance && task.originalTaskId) {
@@ -278,37 +320,77 @@ export default function TaskListPage() {
         }
         
       } else {
-        // Xử lý task thường
+        // ========== XỬ LÝ TASK THƯỜNG (QUAN TRỌNG: ĐÃ THÊM CHECKLIST SYNC) ==========
+        let updateData = {
+          completed: newCompleted,
+          status: newCompleted ? "done" : "todo"
+        };
+        
+        // QUAN TRỌNG: Nếu task có checklist và đang hoàn thành/bỏ hoàn thành,
+        // cần đánh dấu tất cả checklist items
+        if (shouldSyncChecklist(task, newCompleted)) {
+          const syncedTask = syncChecklistOnCompletion(task, newCompleted);
+          updateData.checklist = syncedTask.checklist;
+          console.log(`🔄 Đồng bộ checklist cho task "${task.title}"`);
+        }
+        
         const res = await axios.patch(
           `/tasks/${task._id}`,
-          { 
-            completed: newCompleted,
-            status: newCompleted ? "done" : "todo"
-          },
+          updateData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         
         console.log(`✅ Regular task toggled:`, {
           id: task._id,
           completed: res.data.data.completed,
-          status: res.data.data.status
+          status: res.data.data.status,
+          hasChecklist: res.data.data.checklist ? `${res.data.data.checklist.length} items` : 'no checklist'
         });
         
-        setTasks((prev) => prev.map((t) => (t._id === task._id ? res.data.data : t)));
+        // Cập nhật state với dữ liệu từ server
+        setTasks((prev) => prev.map((t) => {
+          if (t._id === task._id) {
+            const updated = { ...res.data.data };
+            
+            // Đảm bảo checklist được đồng bộ trong local state
+            if (newCompleted === true && task.checklist && task.checklist.length > 0) {
+              updated.checklist = task.checklist.map(item => ({
+                ...item,
+                completed: true,
+                completedAt: item.completed ? item.completedAt : new Date().toISOString()
+              }));
+            } else if (newCompleted === false && task.checklist && task.checklist.length > 0) {
+              updated.checklist = task.checklist.map(item => ({
+                ...item,
+                completed: false,
+                completedAt: null
+              }));
+            }
+            
+            return updated;
+          }
+          return t;
+        }));
         
-        // GỬI EVENT CHO TASK THƯỜNG
+        // GỬI EVENT ĐẶC BIỆT ĐỂ ADVANCED TASK PAGE BIẾT CẦN ĐỒNG BỘ CHECKLIST
         const detail = {
-          type: 'regularTaskUpdated',
+          type: 'taskToggledWithChecklist',
           taskId: task._id,
           completed: newCompleted,
-          dueDate: task.dueDate,
+          hasChecklist: task.checklist && task.checklist.length > 0,
+          checklistItems: task.checklist ? task.checklist.length : 0,
           taskTitle: task.title,
+          dueDate: task.dueDate,
           timestamp: new Date().toISOString()
         };
         
+        // Gửi nhiều loại event để đảm bảo các component khác nhận được
         window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
         window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
         window.dispatchEvent(new CustomEvent('taskSync', { detail }));
+        window.dispatchEvent(new CustomEvent('checklistSynced', { detail }));
+        
+        console.log(`📢 Đã gửi sự kiện đồng bộ checklist cho task "${task.title}"`);
       }
       
       // Nếu đang filter, refresh để hiển thị đúng
