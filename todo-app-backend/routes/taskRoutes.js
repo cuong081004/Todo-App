@@ -3,6 +3,10 @@ const router = express.Router();
 const Task = require("../models/Task");
 const auth = require("../middleware/authMiddleware");
 
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ---------------- GET ALL TASKS WITH PAGINATION ----------------
 router.get("/", auth, async (req, res) => {
   try {
@@ -31,12 +35,13 @@ router.get("/", auth, async (req, res) => {
     if (priority) filter.priority = priority;
     if (projectId) filter.projectId = projectId;
     
-    // Search filter
-    if (search) {
+    // Search filter - SỬA: Escape regex characters
+    if (search && search.trim()) {
+      const escapedSearch = escapeRegex(search.trim());
       filter.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { "tags.name": { $regex: search, $options: "i" } }
+        { title: { $regex: escapedSearch, $options: "i" } },
+        { description: { $regex: escapedSearch, $options: "i" } },
+        { "tags.name": { $regex: escapedSearch, $options: "i" } }
       ];
     }
     
@@ -45,6 +50,7 @@ router.get("/", auth, async (req, res) => {
       userId: req.user.id,
       status: status || 'none',
       completed: completed || 'none',
+      search: search || 'none',
       filter: filter,
       params: req.query
     });
@@ -94,7 +100,6 @@ router.get("/", auth, async (req, res) => {
     });
   }
 });
-
 // ---------------- GET TASKS FOR CALENDAR (NO PAGINATION) ----------------
 router.get("/calendar", auth, async (req, res) => {
   try {
