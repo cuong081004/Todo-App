@@ -7,96 +7,250 @@ function escapeRegex(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function generateRecurringInstances(task, startDate, endDate) {
+  const instances = [];
+  
+  if (!task.recurring || !task.recurring.isRecurring) return instances;
+  
+  // Base date để tính recurring
+  const baseDate = task.startDate || task.dueDate || task.createdAt;
+  if (!baseDate) return instances;
+  
+  // Kiểm tra baseDate có hợp lệ không
+  const base = new Date(baseDate);
+  if (isNaN(base.getTime())) return instances;
+  
+  let currentDate = new Date(base);
+  const now = new Date();
+  
+  // Tính end date cho recurring
+  const endRecurring = task.recurring.endDate ? 
+    new Date(task.recurring.endDate) : 
+    new Date(now.getFullYear() + 10, now.getMonth(), now.getDate()); // 10 năm sau
+  
+  // Đảm bảo currentDate không sau endRecurring
+  if (currentDate > endRecurring) return instances;
+  
+  // Tính tất cả instances trong khoảng thời gian
+  while (currentDate <= endRecurring && currentDate <= endDate) {
+    if (currentDate >= startDate) {
+      // Kiểm tra xem instance này đã hoàn thành hay bị skip chưa
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const isCompleted = task.recurring.completedDates?.some(d => {
+        const dDate = d.date ? new Date(d.date).toISOString().split('T')[0] : '';
+        return dDate === dateStr;
+      }) || false;
+      
+      const isSkipped = task.recurring.skippedDates?.some(d => {
+        const dDate = d.date ? new Date(d.date).toISOString().split('T')[0] : '';
+        return dDate === dateStr;
+      }) || false;
+      
+      // Tạo instance object
+      const instance = JSON.parse(JSON.stringify(task)); // Deep copy
+      
+      // Cập nhật ID và các trường đặc biệt
+      instance._id = `${task._id}_${dateStr}`;
+      instance.originalTaskId = task._id;
+      instance.isRecurringInstance = true;
+      instance.instanceDate = new Date(currentDate);
+      instance.dueDate = new Date(currentDate);
+      instance.completed = isCompleted;
+      instance.status = isCompleted ? 'done' : (isSkipped ? 'skipped' : task.status);
+      
+      // Thêm vào mảng instances
+      instances.push(instance);
+    }
+    
+    // Tính ngày tiếp theo theo pattern
+    switch (task.recurring.pattern) {
+      case 'daily':
+        currentDate.setDate(currentDate.getDate() + (task.recurring.interval || 1));
+        break;
+      case 'weekly':
+        currentDate.setDate(currentDate.getDate() + 7 * (task.recurring.interval || 1));
+        break;
+      case 'monthly':
+        currentDate.setMonth(currentDate.getMonth() + (task.recurring.interval || 1));
+        break;
+      case 'yearly':
+        currentDate.setFullYear(currentDate.getFullYear() + (task.recurring.interval || 1));
+        break;
+      default:
+        currentDate.setDate(currentDate.getDate() + 1); // Default là daily
+    }
+  }
+  
+  return instances;
+}
+
 // ---------------- GET ALL TASKS WITH PAGINATION ----------------
 router.get("/", auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
-    const { status, priority, search, projectId, completed } = req.query;
-    
-    // Build filter
+
+    const {
+      status,
+      priority,
+      search,
+      projectId,
+      completed,
+      includeRecurring = "false",
+      timeframe = "future",
+      hideOriginalRecurring = "false" // ✅ THÊM PARAM MỚI
+    } = req.query;
+
+    console.log("📋 GET /tasks params:", {
+      page,
+      limit,
+      status,
+      priority,
+      search,
+      projectId,
+      completed,
+      includeRecurring,
+      timeframe,
+      hideOriginalRecurring
+    });
+
     let filter = { userId: req.user.id };
-    
-    // Ưu tiên: status trước, nếu không có thì dùng completed
+
     if (status) {
-      // Xử lý filter cho "incomplete"
-      if (status === 'incomplete') {
-        filter.status = { $ne: 'done' };
+      if (status === "incomplete") {
+        filter.status = { $ne: "done" };
       } else {
         filter.status = status;
       }
     } else if (completed !== undefined) {
-      // Fallback: filter theo completed nếu không có status
-      filter.completed = completed === 'true';
+      filter.completed = completed === "true";
     }
-    
+
     if (priority) filter.priority = priority;
     if (projectId) filter.projectId = projectId;
-    
-    // Search filter - SỬA: Escape regex characters
+
     if (search && search.trim()) {
-      const escapedSearch = escapeRegex(search.trim());
+      const escaped = escapeRegex(search.trim());
       filter.$or = [
-        { title: { $regex: escapedSearch, $options: "i" } },
-        { description: { $regex: escapedSearch, $options: "i" } },
-        { "tags.name": { $regex: escapedSearch, $options: "i" } }
+        { title: { $regex: escaped, $options: "i" } },
+        { description: { $regex: escaped, $options: "i" } },
+        { "tags.name": { $regex: escaped, $options: "i" } }
       ];
     }
-    
-    // DEBUG: Log filter
-    console.log("🔍 Task filter query:", {
-      userId: req.user.id,
-      status: status || 'none',
-      completed: completed || 'none',
-      search: search || 'none',
-      filter: filter,
-      params: req.query
-    });
-    
-    // Execute queries in parallel
-    const [tasks, totalTasks] = await Promise.all([
-      Task.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Task.countDocuments(filter)
-    ]);
-    
-    const totalPages = Math.ceil(totalTasks / limit);
-    const hasNext = page < totalPages;
-    const hasPrev = page > 1;
-    
-    // DEBUG: Log results
-    console.log(`📊 Found ${tasks.length} tasks, total: ${totalTasks}`);
-    if (tasks.length > 0) {
-      console.log("📝 Sample task:", {
-        id: tasks[0]._id,
-        title: tasks[0].title,
-        completed: tasks[0].completed,
-        status: tasks[0].status
-      });
+
+    // ===== LẤY TASK GỐC =====
+    const shouldIncludeRecurring = includeRecurring === "true";
+    const shouldHideOriginalRecurring =
+      hideOriginalRecurring === "true" && shouldIncludeRecurring;
+
+    const originalTasksQuery = Task.find(filter);
+
+if (shouldHideOriginalRecurring) {
+  // Đúng cách để filter nested field
+  originalTasksQuery.where("recurring.isRecurring").ne(true);
+  console.log("🚫 Hiding original recurring tasks - using proper MongoDB query");
+}
+
+    const originalTasks = await originalTasksQuery
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    let allTasks = [...originalTasks];
+
+    // ===== INCLUDE RECURRING INSTANCES =====
+    if (shouldIncludeRecurring) {
+      console.log("🔄 Including recurring instances...");
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      let startDate, endDate;
+
+      switch (timeframe) {
+        case "past":
+          startDate = new Date(2000, 0, 1);
+          endDate = new Date(now);
+          break;
+        case "future":
+          startDate = new Date(now);
+          endDate = new Date(
+            now.getFullYear() + 1,
+            now.getMonth(),
+            now.getDate()
+          );
+          break;
+        case "all":
+          startDate = new Date(2000, 0, 1);
+          endDate = new Date(
+            now.getFullYear() + 1,
+            now.getMonth(),
+            now.getDate()
+          );
+          break;
+        default:
+          startDate = new Date(now);
+          endDate = new Date(
+            now.getFullYear() + 1,
+            now.getMonth(),
+            now.getDate()
+          );
+      }
+
+      const recurringFilter = {
+        userId: req.user.id,
+        "recurring.isRecurring": true
+      };
+
+      if (projectId) recurringFilter.projectId = projectId;
+
+      const recurringTasks = await Task.find(recurringFilter).lean();
+
+      for (const task of recurringTasks) {
+        const instances = generateRecurringInstances(
+          task,
+          startDate,
+          endDate
+        );
+        allTasks.push(...instances);
+      }
     }
-    
+
+    // ===== SORT + PAGINATION =====
+    allTasks.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    const paginatedTasks = allTasks.slice(0, limit);
+
+    const totalTasks = allTasks.length;
+    const totalPages = Math.ceil(totalTasks / limit);
+
     res.json({
       success: true,
-      data: tasks,
+      data: paginatedTasks,
       pagination: {
         page,
         limit,
         totalTasks,
         totalPages,
-        hasNext,
-        hasPrev
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      stats: {
+        total: totalTasks,
+        recurringInstances: allTasks.filter(t => t.isRecurringInstance).length,
+        originalTasks: allTasks.filter(t => !t.isRecurringInstance).length
       }
     });
   } catch (err) {
-    console.error("Get tasks error:", err);
+    console.error("❌ Get tasks error:", err);
     res.status(500).json({
       success: false,
       message: "Failed to fetch tasks",
+      error: err.message
     });
   }
 });

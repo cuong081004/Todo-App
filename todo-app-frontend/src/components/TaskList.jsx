@@ -12,6 +12,35 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Hàm format recurring info
+const formatRecurringInfo = (task) => {
+  if (!task.isRecurringInstance) return null;
+  
+  const patterns = {
+    daily: 'hàng ngày',
+    weekly: 'hàng tuần',
+    monthly: 'hàng tháng',
+    yearly: 'hàng năm'
+  };
+  
+  return `🔄 ${patterns[task.recurring?.pattern] || 'lặp lại'}`;
+};
+
+// Hàm format recurring pattern cho task gốc
+const formatRecurringPattern = (task) => {
+  if (!task.recurring?.isRecurring || task.isRecurringInstance) return null;
+  
+  const patterns = {
+    daily: 'hàng ngày',
+    weekly: 'hàng tuần',
+    monthly: 'hàng tháng',
+    yearly: 'hàng năm'
+  };
+  
+  const interval = task.recurring.interval > 1 ? ` (mỗi ${task.recurring.interval} ${patterns[task.recurring.pattern]?.replace('hàng ', '')})` : '';
+  return `🔄 ${patterns[task.recurring.pattern] || 'lặp lại'}${interval}`;
+};
+
 export default function TaskList({
   tasks,
   onToggle,
@@ -22,14 +51,20 @@ export default function TaskList({
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
-  const [editTags, setEditTags] = useState([]); // THÊM: tags trong edit mode
+  const [editTags, setEditTags] = useState([]);
   const [editError, setEditError] = useState("");
 
   const startEditing = (task) => {
+    // KHÔNG cho phép edit recurring instances
+    if (task.isRecurringInstance) {
+      alert("Không thể chỉnh sửa recurring instances trực tiếp. Vui lòng chỉnh sửa task gốc.");
+      return;
+    }
+    
     setEditingId(task._id);
     setEditTitle(task.title);
     setEditDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
-    setEditTags(task.tags || []); // THÊM: khởi tạo tags khi edit
+    setEditTags(task.tags || []);
     setEditError("");
   };
 
@@ -58,7 +93,7 @@ export default function TaskList({
       await onEdit(id, {
         title: editTitle.trim(),
         dueDate: editDueDate || null,
-        tags: editTags, // THÊM: gửi tags khi edit
+        tags: editTags,
       });
       setEditingId(null);
       setEditError("");
@@ -68,21 +103,18 @@ export default function TaskList({
     }
   };
 
-  // SỬA: Hàm highlight text an toàn (cho cả title và tags)
+  // Hàm highlight text an toàn
   function highlightText(text, search) {
     if (!search || !text) return escapeHtml(text);
 
     try {
-      // Escape search term để tránh lỗi regex
       const escapedSearch = escapeRegex(search);
       const regex = new RegExp(`(${escapedSearch})`, "gi");
       
-      // Escape toàn bộ text trước khi xử lý
       const safeText = escapeHtml(text);
       const parts = safeText.split(regex);
 
       return parts.map((part, i) => {
-        // So sánh đã escape để tránh XSS
         const safePart = escapeHtml(part);
         const escapedSearchLower = escapeHtml(search.toLowerCase());
         const partLower = escapeHtml(part.toLowerCase());
@@ -97,17 +129,15 @@ export default function TaskList({
       });
     } catch (error) {
       console.error("Error in highlightText:", error);
-      // Fallback: trả về text đã escape
       return escapeHtml(text);
     }
   }
 
-  // SỬA: Hàm kiểm tra tag có match với search không (an toàn)
+  // Hàm kiểm tra tag có match với search không
   const isTagMatchSearch = (tag, search) => {
     if (!search || !tag || !tag.name) return false;
     
     try {
-      // Sử dụng includes thay vì regex để tránh lỗi
       const safeTagName = tag.name.toLowerCase();
       const safeSearch = search.toLowerCase();
       return safeTagName.includes(safeSearch);
@@ -134,6 +164,25 @@ export default function TaskList({
     }
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      
+      return date.toLocaleDateString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting date time:", error);
+      return "";
+    }
+  };
+
   const isOverdue = (task) => {
     if (!task.dueDate || task.completed) return false;
     
@@ -147,15 +196,56 @@ export default function TaskList({
     }
   };
 
+  // SỬA LỖI: Hàm xử lý toggle task - TRUYỀN CẢ TASK
+  const handleToggle = (task) => {
+    console.log("📤 TaskList: Toggling task:", {
+      _id: task._id,
+      title: task.title,
+      isRecurringInstance: task.isRecurringInstance,
+      originalTaskId: task.originalTaskId
+    });
+    
+    if (canToggleTask(task)) {
+      // QUAN TRỌNG: Truyền cả task object, không chỉ ID và completed
+      onToggle(task);
+    }
+  };
+
+  // Hàm xử lý delete task - TRUYỀN CẢ TASK
+  const handleDelete = (task) => {
+    if (canDeleteTask(task)) {
+      onDelete(task);
+    }
+  };
+
+  // Hàm kiểm tra task có thể chỉnh sửa không
+  const canEditTask = (task) => {
+    if (task.isRecurringInstance) return false;
+    return true;
+  };
+
+  // Hàm kiểm tra task có thể xóa không
+  const canDeleteTask = (task) => {
+    if (task.isRecurringInstance) return false;
+    return true;
+  };
+
+  // Hàm kiểm tra task có checkbox không
+  const canToggleTask = (task) => {
+    if (!task.isRecurringInstance && task.recurring?.isRecurring) return false; // Task gốc recurring không có checkbox
+    if (task.isRecurringInstance) return true; // Instance có checkbox
+    return true; // Task thường có checkbox
+  };
+
   return (
     <ul className="task-list">
       {tasks.map((task) => (
         <li 
           key={task._id} 
-          className={`task-item ${task.completed ? "completed" : ""} ${isOverdue(task) ? "overdue" : ""}`}
+          className={`task-item ${task.completed ? "completed" : ""} ${isOverdue(task) ? "overdue" : ""} ${task.isRecurringInstance ? "recurring-instance" : ""} ${task.recurring?.isRecurring ? "recurring-original" : ""}`}
         >
-          {/* EDIT MODE */}
-          {editingId === task._id ? (
+          {/* EDIT MODE - Chỉ hiển thị cho non-instance tasks */}
+          {editingId === task._id && canEditTask(task) ? (
             <div className="edit-mode">
               {editError && <div className="edit-error">{editError}</div>}
               
@@ -177,7 +267,7 @@ export default function TaskList({
                 aria-label="Sửa ngày hết hạn"
               />
 
-              {/* THÊM: Edit tags section */}
+              {/* Edit tags section */}
               <div className="edit-tags-section">
                 <strong>Tags:</strong>
                 <div className="edit-tags-list">
@@ -223,41 +313,128 @@ export default function TaskList({
             <>
               {/* MAIN CONTENT */}
               <div className="task-main-content">
-                {/* CHECKBOX */}
-                <div 
-                  className={`task-checkbox ${task.completed ? "checked" : ""}`}
-                  onClick={() => onToggle(task._id, task.completed)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') onToggle(task._id, task.completed);
-                  }}
-                  aria-label={task.completed ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
-                  aria-checked={task.completed}
-                >
-                  {task.completed ? "✓" : ""}
-                </div>
-                
-                {/* TEXT CONTENT */}
-                <div className="task-text-content">
-                  <span 
-                    className="task-title"
-                    onClick={() => onToggle(task._id, task.completed)}
+                {/* CHECKBOX - CHỈ CHO INSTANCES */}
+                {canToggleTask(task) ? (
+                  <div 
+                    className={`task-checkbox ${task.completed ? "checked" : ""}`}
+                    onClick={() => {
+                      console.log("🔘 Clicking checkbox for task:", task._id);
+                      handleToggle(task);
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') onToggle(task._id, task.completed);
+                      if (e.key === 'Enter') {
+                        console.log("⌨️ Enter key for task:", task._id);
+                        handleToggle(task);
+                      }
                     }}
-                    aria-label={`Task: ${task.title}. Click để ${task.completed ? 'đánh dấu chưa hoàn thành' : 'đánh dấu hoàn thành'}`}
+                    aria-label={task.completed ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
+                    aria-checked={task.completed}
+                    title={task.isRecurringInstance ? "Đánh dấu instance này" : "Đánh dấu task"}
                   >
-                    {highlightText(task.title, search)}
-                  </span>
+                    {task.completed ? "✓" : ""}
+                  </div>
+                ) : (
+                  // Task gốc recurring - không có checkbox, thay bằng icon
+                  <div 
+                    className="task-original-icon"
+                    title="Task gốc lặp lại - chỉnh sửa task gốc để thay đổi tất cả instances"
+                  >
+                    🔄
+                  </div>
+                )}
+                
+                {/* TEXT CONTENT */}
+                <div className="task-text-content">
+                  {/* Task Type Indicator */}
+                  <div className="task-type-indicator">
+                    {task.isRecurringInstance ? (
+                      <span className="task-type-badge instance">📅 Instance</span>
+                    ) : task.recurring?.isRecurring ? (
+                      <span className="task-type-badge recurring">🔄 Recurring Gốc</span>
+                    ) : null}
+                  </div>
+                  
+                  <div className="task-title-row">
+                    <span 
+                      className="task-title"
+                      onClick={() => {
+                        if (canToggleTask(task)) {
+                          console.log("📝 Clicking title for task:", task._id);
+                          handleToggle(task);
+                        }
+                      }}
+                      role={canToggleTask(task) ? "button" : undefined}
+                      tabIndex={canToggleTask(task) ? 0 : undefined}
+                      onKeyPress={(e) => {
+                        if (canToggleTask(task) && e.key === 'Enter') {
+                          console.log("⌨️ Enter on title for task:", task._id);
+                          handleToggle(task);
+                        }
+                      }}
+                      aria-label={`Task: ${task.title}. ${canToggleTask(task) ? `Click để ${task.completed ? 'đánh dấu chưa hoàn thành' : 'đánh dấu hoàn thành'}` : ''}`}
+                    >
+                      {highlightText(task.title, search)}
+                    </span>
+                  </div>
+
+                  {/* Recurring Info */}
+                  {task.isRecurringInstance && (
+                    <div className="recurring-instance-info">
+                      <div className="recurring-instance-details">
+                        <span className="recurring-instance-date">
+                          📅 {formatDate(task.instanceDate || task.dueDate)}
+                        </span>
+                        <span className="recurring-pattern">
+                          {formatRecurringInfo(task)}
+                        </span>
+                      </div>
+                      
+                      {/* Original task link for recurring instances */}
+                      {task.originalTaskId && (
+                        <div className="original-task-info">
+                          <span 
+                            className="original-task-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              alert(`Đây là instance của task gốc ID: ${task.originalTaskId}\nChỉnh sửa task gốc để thay đổi tất cả instances.`);
+                            }}
+                            title="Xem task gốc"
+                          >
+                            🔗 Liên kết với task gốc
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Original Recurring Task Info */}
+                  {task.recurring?.isRecurring && !task.isRecurringInstance && (
+                    <div className="recurring-original-info">
+                      <div className="recurring-original-details">
+                        <span className="recurring-pattern">
+                          {formatRecurringPattern(task)}
+                        </span>
+                        {task.recurring.completedInstances > 0 && (
+                          <span className="completed-instances">
+                            ✅ {task.recurring.completedInstances} instances đã hoàn thành
+                          </span>
+                        )}
+                        {task.recurring.endDate && (
+                          <span className="recurring-end-date">
+                            📅 Kết thúc: {formatDate(task.recurring.endDate)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* META INFO */}
                   <div className="task-meta">
                     {task.dueDate && (
                       <span className="task-date">
-                        {formatDate(task.dueDate)}
+                        {formatDateTime(task.dueDate)}
                       </span>
                     )}
                     {isOverdue(task) && (
@@ -265,12 +442,23 @@ export default function TaskList({
                         className="overdue-badge"
                         aria-label="Task trễ hạn"
                       >
-                        Trễ hạn
+                        ⚠️ Trễ hạn
+                      </span>
+                    )}
+                    
+                    {/* Completion Status */}
+                    {task.completed ? (
+                      <span className="completed-status">
+                        ✅ Hoàn thành
+                      </span>
+                    ) : (
+                      <span className="pending-status">
+                        ⏳ Chưa hoàn thành
                       </span>
                     )}
                   </div>
 
-                  {/* TAGS - CẢI THIỆN: highlight tags khi tìm kiếm */}
+                  {/* TAGS */}
                   {task.tags?.length > 0 && (
                     <div className="task-tags" aria-label="Tags của task">
                       {task.tags.map((tag, i) => {
@@ -296,22 +484,47 @@ export default function TaskList({
                 </div>
               </div>
 
-              {/* ACTIONS */}
+              {/* ACTIONS - CHỈ CHO TASK GỐC */}
               <div className="task-actions">
-                <button 
-                  onClick={() => startEditing(task)}
-                  className="edit-btn"
-                  aria-label="Sửa task"
-                >
-                  ✏️
-                </button>
-                <button 
-                  onClick={() => onDelete(task._id)}
-                  className="delete-btn"
-                  aria-label="Xóa task"
-                >
-                  🗑️
-                </button>
+                {/* Edit button - CHỈ cho task gốc */}
+                {canEditTask(task) && (
+                  <button 
+                    onClick={() => {
+                      console.log("✏️ Editing task:", task._id);
+                      startEditing(task);
+                    }}
+                    className="edit-btn"
+                    aria-label="Sửa task"
+                    title="Chỉnh sửa task"
+                  >
+                    ✏️
+                  </button>
+                )}
+                
+                {/* Delete button - CHỈ cho task gốc (không phải instance) */}
+                {canDeleteTask(task) && (
+                  <button 
+                    onClick={() => {
+                      console.log("🗑️ Deleting task:", task._id);
+                      handleDelete(task);
+                    }}
+                    className="delete-btn"
+                    aria-label="Xóa task"
+                    title="Xóa task"
+                  >
+                    🗑️
+                  </button>
+                )}
+                
+                {/* Instance note - nếu là instance và không có actions */}
+                {task.isRecurringInstance && (
+                  <span 
+                    className="instance-note"
+                    title="Chỉnh sửa task gốc để thay đổi tất cả instances"
+                  >
+                    ✨
+                  </span>
+                )}
               </div>
             </>
           )}

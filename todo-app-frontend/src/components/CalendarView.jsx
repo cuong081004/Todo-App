@@ -13,6 +13,12 @@ const CalendarView = () => {
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [hoverDate, setHoverDate] = useState(null);
   const [expandedTasks, setExpandedTasks] = useState({});
+  
+  // State cho auto-refresh
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [forceRefresh, setForceRefresh] = useState(0);
+  const [refreshNotification, setRefreshNotification] = useState(null);
+  
   const token = localStorage.getItem("token");
 
   // Refs for detecting clicks outside
@@ -46,7 +52,7 @@ const CalendarView = () => {
     return yearsArray;
   }, []);
 
-  // FIXED: Helper function để lấy date string (YYYY-MM-DD) với timezone đúng
+  // Helper function để lấy date string (YYYY-MM-DD) với timezone đúng
   const getDateString = (date, useLocal = true) => {
     if (!date) return '';
     try {
@@ -69,7 +75,7 @@ const CalendarView = () => {
     }
   };
 
-  // FIXED: Thêm hàm normalize date chính xác hơn
+  // Thêm hàm normalize date chính xác hơn
   const normalizeDateForComparison = (date) => {
     if (!date) return null;
     try {
@@ -85,19 +91,28 @@ const CalendarView = () => {
     }
   };
 
-  // Fetch tasks for month
+  // ========== CẢI THIỆN: Fetch tasks với cache busting ==========
   const fetchTasksForMonth = useCallback(
     async (month, year) => {
       setLoading(true);
       try {
+        const cacheBuster = Date.now(); // Thêm timestamp để tránh cache
+        console.log(`🔄 Fetching calendar tasks for ${month}/${year} (cache: ${cacheBuster})`);
+        
         const res = await axios.get("/advanced-tasks/calendar/recurring", {
           headers: { Authorization: `Bearer ${token}` },
-          params: { month, year },
+          params: { 
+            month, 
+            year,
+            _: cacheBuster // Thêm param cache busting
+          },
         });
+        
         console.log(
           "📅 Calendar tasks loaded:",
           res.data?.data?.length || 0,
-          "tasks"
+          "tasks",
+          `(cache bust: ${cacheBuster})`
         );
 
         // Debug: log một vài task để kiểm tra timezone
@@ -111,12 +126,15 @@ const CalendarView = () => {
                 dueDateNormalized: getDateString(taskDate, true),
                 completed: task.completed,
                 status: task.status,
+                isRecurringInstance: task.isRecurringInstance
               });
             }
           });
         }
 
         setTasks(res.data?.data || []);
+        setLastUpdate(new Date().toISOString());
+        
       } catch (error) {
         console.error("Failed to fetch calendar tasks:", error);
         setTasks([]);
@@ -130,6 +148,79 @@ const CalendarView = () => {
   // Initial fetch
   useEffect(() => {
     fetchTasksForMonth(currentMonth, currentYear);
+  }, [fetchTasksForMonth, currentMonth, currentYear]);
+
+  // ========== QUAN TRỌNG: Event listeners để đồng bộ với TaskList ==========
+  useEffect(() => {
+    const handleTaskUpdate = (event) => {
+      console.log('📬 Calendar received update event:', event.detail);
+      
+      // Hiển thị thông báo refresh
+      if (event.detail?.taskTitle) {
+        const action = event.detail.completed ? 'hoàn thành' : 'bỏ hoàn thành';
+        setRefreshNotification({
+          message: `✅ "${event.detail.taskTitle}" đã được ${action}`,
+          type: 'success',
+          timestamp: new Date()
+        });
+        
+        // Tự động ẩn thông báo sau 3 giây
+        setTimeout(() => {
+          setRefreshNotification(null);
+        }, 3000);
+      }
+      
+      // Tăng forceRefresh để trigger re-render
+      setForceRefresh(prev => prev + 1);
+      setLastUpdate(new Date().toISOString());
+      
+      // Refresh data ngay lập tức (với delay nhỏ để đảm bảo server đã update)
+      setTimeout(() => {
+        console.log('🔄 Calendar refreshing due to task update');
+        fetchTasksForMonth(currentMonth, currentYear);
+      }, 500);
+    };
+
+    const handleRefreshCalendar = (event) => {
+      console.log('🔄 Calendar received refresh event:', event.detail);
+      setForceRefresh(prev => prev + 1);
+      
+      // Refresh với cache busting
+      setTimeout(() => {
+        fetchTasksForMonth(currentMonth, currentYear);
+      }, 300);
+    };
+    
+    const handleTaskSync = (event) => {
+      console.log('🔄 Calendar received sync event:', event.detail);
+      
+      // Hiển thị thông báo tùy theo loại sync
+      if (event.detail?.type === 'recurringInstanceUpdated') {
+        setRefreshNotification({
+          message: `🔄 Đang đồng bộ recurring instance...`,
+          type: 'info',
+          timestamp: new Date()
+        });
+      }
+      
+      setForceRefresh(prev => prev + 1);
+      
+      // Refresh sau 1 giây để đảm bảo
+      setTimeout(() => {
+        fetchTasksForMonth(currentMonth, currentYear);
+      }, 1000);
+    };
+
+    // Đăng ký event listeners
+    window.addEventListener('taskUpdated', handleTaskUpdate);
+    window.addEventListener('refreshCalendar', handleRefreshCalendar);
+    window.addEventListener('taskSync', handleTaskSync);
+    
+    return () => {
+      window.removeEventListener('taskUpdated', handleTaskUpdate);
+      window.removeEventListener('refreshCalendar', handleRefreshCalendar);
+      window.removeEventListener('taskSync', handleTaskSync);
+    };
   }, [fetchTasksForMonth, currentMonth, currentYear]);
 
   // Close pickers when clicking outside
@@ -149,7 +240,15 @@ const CalendarView = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // FIXED: Handle date selection với timezone đúng
+  // ========== Thêm forceRefresh vào dependency để tự động refresh ==========
+  useEffect(() => {
+    if (forceRefresh > 0) {
+      console.log(`🔄 Calendar force refresh #${forceRefresh}`);
+      // Không cần fetch lại ở đây vì đã có trong event handlers
+    }
+  }, [forceRefresh]);
+
+  // Handle date selection
   const handleDateSelect = (date) => {
     console.log("📅 Date selected:", date.toLocaleDateString('vi-VN'));
     
@@ -174,7 +273,7 @@ const CalendarView = () => {
     }));
   };
 
-  // FIXED: Navigation handlers
+  // Navigation handlers
   const goToPreviousMonth = () => {
     let newMonth = currentMonth - 1;
     let newYear = currentYear;
@@ -221,7 +320,7 @@ const CalendarView = () => {
     fetchTasksForMonth(newMonth, newYear);
   };
 
-  // FIXED: Select month and year
+  // Select month and year
   const selectMonth = (monthId) => {
     setCurrentMonth(monthId);
     setShowMonthYearPicker(false);
@@ -252,7 +351,7 @@ const CalendarView = () => {
     fetchTasksForMonth(currentMonth, year);
   };
 
-  // FIXED: Go to today với local time đúng
+  // Go to today với local time đúng
   const goToToday = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -265,7 +364,7 @@ const CalendarView = () => {
     fetchTasksForMonth(today.getMonth() + 1, today.getFullYear());
   };
 
-  // FIXED: Go to previous/next year
+  // Go to previous/next year
   const goToPreviousYear = () => {
     const newYear = currentYear - 1;
     setCurrentYear(newYear);
@@ -330,7 +429,7 @@ const CalendarView = () => {
     };
   }, [tasks, currentMonth, currentYear]);
 
-  // FIXED: Get tasks for selected date - Sửa hoàn toàn logic
+  // Get tasks for selected date
   const tasksForSelectedDate = useMemo(() => {
     if (!selectedDate || tasks.length === 0) return [];
     
@@ -362,7 +461,7 @@ const CalendarView = () => {
             taskDateStr,
             selectedDateStr,
             completed: task.completed,
-            dueDate: task.dueDate
+            isRecurringInstance: task.isRecurringInstance
           });
         }
         
@@ -381,7 +480,8 @@ const CalendarView = () => {
         id: task._id,
         completed: task.completed,
         dueDate: task.dueDate,
-        status: task.status
+        status: task.status,
+        isRecurringInstance: task.isRecurringInstance
       });
     });
     
@@ -410,7 +510,7 @@ const CalendarView = () => {
     });
   }, [tasks, hoverDate]);
 
-  // FIXED: Enhanced tile content với logic mới
+  // Enhanced tile content với logic mới
   const tileContent = ({ date, view }) => {
     if (view !== "month") return null;
 
@@ -474,7 +574,7 @@ const CalendarView = () => {
     );
   };
 
-  // FIXED: Enhanced tile class names với logic mới
+  // Enhanced tile class names với logic mới
   const getTileClassName = ({ date, view }) => {
     if (view !== "month") return "";
 
@@ -665,7 +765,7 @@ const CalendarView = () => {
   };
 
   // Create test task for today
-  const createTestTaskForToday = async () => {
+  const _createTestTaskForToday = async () => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -690,7 +790,7 @@ const CalendarView = () => {
   };
 
   // Create test task for tomorrow
-  const createTestTaskForTomorrow = async () => {
+  const _createTestTaskForTomorrow = async () => {
     try {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -715,6 +815,23 @@ const CalendarView = () => {
     }
   };
 
+  // Manual refresh function
+  const handleManualRefresh = () => {
+    console.log("🔄 Manual refresh triggered");
+    setForceRefresh(prev => prev + 1);
+    fetchTasksForMonth(currentMonth, currentYear);
+    
+    setRefreshNotification({
+      message: "🔄 Đang làm mới dữ liệu...",
+      type: 'info',
+      timestamp: new Date()
+    });
+    
+    setTimeout(() => {
+      setRefreshNotification(null);
+    }, 2000);
+  };
+
   if (loading) {
     return (
       <div className="calendar-container">
@@ -731,110 +848,57 @@ const CalendarView = () => {
   return (
     <div className="calendar-container">
       <div className="calendar-card">
-        {/* DEBUG INFO */}
-        <div className="debug-info" style={{
-          background: 'var(--light-bg)', 
-          padding: '15px', 
-          marginBottom: '20px',
-          borderRadius: '8px',
-          fontSize: '13px',
-          border: '2px solid var(--border)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <strong style={{ color: 'var(--text)' }}>📊 Debug Date Matching:</strong>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => {
-                  console.log("=== DATE MATCHING DEBUG ===");
-                  console.log("selectedDate:", selectedDate);
-                  console.log("selectedDate (normalized):", getDateString(selectedDate, true));
-                  console.log("Today:", getDateString(new Date(), true));
-                  
-                  tasks.forEach((task, index) => {
-                    if (task.dueDate) {
-                      const taskDateStr = getDateString(normalizeDateForComparison(task.dueDate), true);
-                      const selectedDateStr = getDateString(selectedDate, true);
-                      const isMatch = taskDateStr === selectedDateStr;
-                      
-                      console.log(`Task ${index}: "${task.title}"`, {
-                        dueDate: task.dueDate,
-                        dueDateNormalized: taskDateStr,
-                        selectedDateNormalized: selectedDateStr,
-                        matches: isMatch,
-                        completed: task.completed,
-                        isOverdue: new Date(task.dueDate) < new Date() && !task.completed
-                      });
-                    }
-                  });
-                }}
-                style={{
-                  background: '#3498db',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Log Matching
-              </button>
-              <button 
-                onClick={createTestTaskForToday}
-                style={{
-                  background: '#28a745',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                ➕ Test Today
-              </button>
-              <button 
-                onClick={createTestTaskForTomorrow}
-                style={{
-                  background: '#6c5ce7',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                ➕ Test Tomorrow
-              </button>
-            </div>
+        {/* Refresh Notification */}
+        {refreshNotification && (
+          <div className={`refresh-notification ${refreshNotification.type}`} style={{
+            marginBottom: '20px',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            fontSize: '14px',
+            fontWeight: '600',
+            animation: 'fadeInOut 3s ease-in-out',
+            backgroundColor: refreshNotification.type === 'success' ? 'rgba(40, 167, 69, 0.1)' : 
+                           refreshNotification.type === 'info' ? 'rgba(0, 123, 255, 0.1)' : 'rgba(255, 193, 7, 0.1)',
+            border: `1px solid ${refreshNotification.type === 'success' ? 'rgba(40, 167, 69, 0.3)' : 
+                               refreshNotification.type === 'info' ? 'rgba(0, 123, 255, 0.3)' : 'rgba(255, 193, 7, 0.3)'}`,
+            color: refreshNotification.type === 'success' ? '#28a745' : 
+                   refreshNotification.type === 'info' ? '#007bff' : '#ffc107'
+          }}>
+            {refreshNotification.message}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-            <div>
-              <strong>Selected Date:</strong>
-              <div>Normalized: {getDateString(selectedDate, true)}</div>
-              <div>Original: {selectedDate.toISOString().split('T')[0]}</div>
-            </div>
-            <div>
-              <strong>Task Analysis:</strong>
-              <div>Total Tasks: {tasks.length}</div>
-              <div style={{ 
-                color: tasksForSelectedDate.length > 0 ? '#27ae60' : '#e74c3c', 
-                fontWeight: 'bold',
-                fontSize: '14px'
-              }}>
-                Matching tasks for {getDateString(selectedDate, true)}: {tasksForSelectedDate.length}
-              </div>
-              <div style={{ fontSize: '11px', marginTop: '4px' }}>
-                {tasksForSelectedDate.filter(t => t.completed).length} hoàn thành,
-                {tasksForSelectedDate.filter(t => !t.completed).length} chưa hoàn thành
-              </div>
-            </div>
+        )}
+        
+        {/* Refresh Indicator */}
+        {lastUpdate && (
+          <div className="refresh-indicator" style={{
+            textAlign: 'center',
+            marginBottom: '10px',
+            fontSize: '12px',
+            color: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            padding: '8px',
+            borderRadius: '6px',
+            border: '1px solid rgba(40, 167, 69, 0.3)'
+          }}>
+            🔄 Cập nhật lúc: {new Date(lastUpdate).toLocaleTimeString('vi-VN')}
+            <button 
+              onClick={handleManualRefresh}
+              style={{
+                marginLeft: '10px',
+                padding: '4px 8px',
+                background: 'transparent',
+                border: '1px solid #28a745',
+                borderRadius: '4px',
+                color: '#28a745',
+                fontSize: '11px',
+                cursor: 'pointer'
+              }}
+            >
+              Làm mới
+            </button>
           </div>
-        </div>
+        )}
 
         {/* MINIMAL HEADER */}
         <div className="calendar-header-minimal">
@@ -873,13 +937,13 @@ const CalendarView = () => {
           </div>
         </div>
 
-        {/* ENHANCED CALENDAR CONTROLS - SIMPLIFIED */}
+        {/* ENHANCED CALENDAR CONTROLS */}
         <div className="calendar-controls-enhanced">
           <div className="control-group-left">
             <button className="today-btn" onClick={goToToday}>
               <span>📅</span> Hôm nay
             </button>
-                        <button
+            <button
               onClick={goToPreviousYear}
               className="nav-btn year-nav-btn"
               title="Năm trước"
