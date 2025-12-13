@@ -51,18 +51,19 @@ export default function AdvancedTaskList({
   onToggle,
   onDelete,
   onEdit,
-  onViewDetail, // THÊM PROP NÀY
+  onViewDetail,
   onChecklistToggle,
+  onMarkAllChecklist,
 }) {
   const [expandedTask, setExpandedTask] = useState(null);
-  const [viewMode, setViewMode] = useState("list"); // 'list' or 'board'
+  const [viewMode, setViewMode] = useState("list");
 
   const toggleExpand = (taskId) => {
     setExpandedTask(expandedTask === taskId ? null : taskId);
   };
 
-  const handleChecklistToggle = (taskId, checklistIndex) => {
-    onChecklistToggle(taskId, checklistIndex);
+  const handleChecklistToggle = async (taskId, checklistIndex) => {
+    await onChecklistToggle(taskId, checklistIndex);
   };
 
   const formatTime = (timeObj) => {
@@ -72,12 +73,39 @@ export default function AdvancedTaskList({
     return `${timeObj.value} ${units[timeObj.unit] || timeObj.unit}`;
   };
 
+  // HÀM QUAN TRỌNG: Kiểm tra task có hoàn thành không (bao gồm cả checklist và status)
+  const isTaskCompleted = (task) => {
+    // Ưu tiên: nếu task.completed = true thì luôn hoàn thành
+    if (task.completed === true) return true;
+    
+    // Nếu task có checklist và tất cả đều completed
+    if (task.checklist && 
+        task.checklist.length > 0 && 
+        task.checklist.every(item => item.completed)) {
+      return true;
+    }
+    
+    // Nếu status là "done"
+    if (task.status === "done") return true;
+    
+    return false;
+  };
+
+  // HÀM QUAN TRỌNG: Tính progress chính xác
   const calculateProgress = (task) => {
+    // Nếu task đã completed, progress = 100%
+    if (task.completed) return 100;
+    
     if (task.checklist && task.checklist.length > 0) {
       const completed = task.checklist.filter((item) => item.completed).length;
       return (completed / task.checklist.length) * 100;
     }
-    return task.completed ? 100 : 0;
+    
+    // Nếu không có checklist, dựa vào status
+    if (task.status === "done") return 100;
+    if (task.status === "in_progress") return 50;
+    if (task.status === "review") return 75;
+    return 0;
   };
 
   // Board View
@@ -103,16 +131,25 @@ export default function AdvancedTaskList({
               <div className="column-tasks">
                 {tasks
                   .filter((task) => task.status === status)
-                  .map((task) => (
-                    <TaskCard
-                      key={task._id}
-                      task={task}
-                      onToggle={onToggle}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      onViewDetail={onViewDetail} // THÊM VÀO TASK CARD
-                    />
-                  ))}
+                  .map((task) => {
+                    const taskCompleted = isTaskCompleted(task);
+                    const progress = calculateProgress(task);
+                    
+                    return (
+                      <TaskCard
+                        key={task._id}
+                        task={task}
+                        taskCompleted={taskCompleted}
+                        progress={progress}
+                        onToggle={onToggle}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onViewDetail={onViewDetail}
+                        onChecklistToggle={handleChecklistToggle}
+                        onMarkAllChecklist={onMarkAllChecklist}
+                      />
+                    );
+                  })}
               </div>
             </div>
           ))}
@@ -143,166 +180,228 @@ export default function AdvancedTaskList({
       </div>
 
       <div className="tasks-container">
-        {tasks.map((task) => (
-          <div
-            key={task._id}
-            className={`advanced-task-item ${
-              task.completed ? "completed" : ""
-            }`}
-          >
-            {/* Task Header */}
-            <div className="task-header">
-              <div className="task-main-info">
-                <div
-                  className="task-checkbox"
-                  onClick={() => onToggle(task._id, task.completed)}
-                >
-                  {task.completed ? "✅" : "⭕"}
-                </div>
-
-                <div className="task-title-section">
-                  <h4 className="task-title">{task.title}</h4>
-                  <div className="task-meta">
-                    <span className={`priority-badge ${task.priority}`}>
-                      {PRIORITY_CONFIG[task.priority]?.label}
-                    </span>
-                    <span className={`status-badge ${task.status}`}>
-                      {STATUS_CONFIG[task.status]?.label}
-                    </span>
-                    {task.estimatedTime && task.estimatedTime.value && (
-                      <span className="time-estimate">
-                        ⏱️ {formatTime(task.estimatedTime)}
-                      </span>
-                    )}
-
-                    {task.actualTime && task.actualTime.value && (
-                      <span className="time-actual">
-                        ⏰ {formatTime(task.actualTime)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="task-actions">
-                <button onClick={() => toggleExpand(task._id)}>
-                  {expandedTask === task._id ? "📕" : "📖"}
-                </button>
-                <button onClick={() => onEdit(task)}>✏️</button>
-                <button onClick={() => onDelete(task._id)}>🗑️</button>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            {task.checklist && task.checklist.length > 0 && (
-              <div className="progress-section">
-                <div className="progress-bar">
+        {tasks.map((task) => {
+          const taskCompleted = isTaskCompleted(task);
+          const progress = calculateProgress(task);
+          
+          return (
+            <div
+              key={task._id}
+              className={`advanced-task-item ${taskCompleted ? "completed" : ""}`}
+            >
+              {/* Task Header */}
+              <div className="task-header">
+                <div className="task-main-info">
                   <div
-                    className="progress-fill"
-                    style={{ width: `${calculateProgress(task)}%` }}
-                  ></div>
-                </div>
-                <span className="progress-text">
-                  {task.checklist.filter((item) => item.completed).length}/
-                  {task.checklist.length} completed
-                </span>
-              </div>
-            )}
-
-            {/* Expanded Details */}
-            {expandedTask === task._id && (
-              <div className="task-details">
-                {task.description && (
-                  <div className="detail-section">
-                    <strong>📄 Mô tả:</strong>
-                    <p>{task.description}</p>
+                    className={`task-checkbox ${taskCompleted ? "checked" : ""}`}
+                    onClick={() => onToggle(task._id, task.completed)}
+                  >
+                    {taskCompleted ? "✓" : ""}
                   </div>
-                )}
 
-                {/* Dates */}
-                <div className="detail-row">
-                  {task.startDate && (
-                    <div className="detail-item">
-                      <strong>📅 Bắt đầu:</strong>
-                      <span>
-                        {new Date(task.startDate).toLocaleDateString("vi-VN")}
+                  <div className="task-title-section">
+                    <h4 className={`task-title ${taskCompleted ? "completed" : ""}`}>
+                      {task.title}
+                    </h4>
+                    <div className="task-meta">
+                      <span className={`priority-badge ${task.priority}`}>
+                        {PRIORITY_CONFIG[task.priority]?.label}
                       </span>
-                    </div>
-                  )}
-                  {task.dueDate && (
-                    <div className="detail-item">
-                      <strong>⏰ Deadline:</strong>
-                      <span
-                        className={
-                          task.isOverdue && !task.completed ? "overdue" : ""
-                        }
-                      >
-                        {new Date(task.dueDate).toLocaleDateString("vi-VN")}
-                        {task.isOverdue && !task.completed && " (Trễ hạn)"}
+                      <span className={`status-badge ${task.status}`}>
+                        {STATUS_CONFIG[task.status]?.label}
                       </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Checklist */}
-                {task.checklist && task.checklist.length > 0 && (
-                  <div className="detail-section">
-                    <strong>✅ Checklist:</strong>
-                    <div className="checklist">
-                      {task.checklist.map((item, index) => (
-                        <label key={index} className="checklist-item">
-                          <input
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={() =>
-                              handleChecklistToggle(task._id, index)
-                            }
-                          />
-                          <span className={item.completed ? "completed" : ""}>
-                            {item.text}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tags */}
-                {task.tags && task.tags.length > 0 && (
-                  <div className="detail-section">
-                    <strong>🏷️ Tags:</strong>
-                    <div className="tags">
-                      {task.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="tag"
-                          style={{ backgroundColor: tag.color }}
-                        >
-                          {tag.name}
+                      {task.estimatedTime && task.estimatedTime.value && (
+                        <span className="time-estimate">
+                          ⏱️ {formatTime(task.estimatedTime)}
                         </span>
-                      ))}
+                      )}
+
+                      {task.actualTime && task.actualTime.value && (
+                        <span className="time-actual">
+                          ⏰ {formatTime(task.actualTime)}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
+
+                <div className="task-actions">
+                  <button onClick={() => toggleExpand(task._id)}>
+                    {expandedTask === task._id ? "📕" : "📖"}
+                  </button>
+                  <button onClick={() => onEdit(task)}>✏️</button>
+                  <button onClick={() => onDelete(task._id)}>🗑️</button>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* Progress Bar */}
+              {task.checklist && task.checklist.length > 0 && (
+                <div className="progress-section">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                  <div className="progress-info">
+                    <span className="progress-text">
+                      {task.checklist.filter((item) => item.completed).length}/
+                      {task.checklist.length} completed
+                    </span>
+                    {task.checklist.every(item => item.completed) && (
+                      <span className="all-completed-badge">
+                        ✅ Tất cả đã hoàn thành
+                      </span>
+                    )}
+                    {onMarkAllChecklist && (
+                      <button
+                        className="mark-all-btn-small"
+                        onClick={() => onMarkAllChecklist(task._id)}
+                        title={task.checklist.every(item => item.completed) ? "Bỏ hoàn thành tất cả" : "Hoàn thành tất cả"}
+                      >
+                        {task.checklist.every(item => item.completed) ? "↩️ Bỏ tất cả" : "✅ Hoàn thành tất cả"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Expanded Details */}
+              {expandedTask === task._id && (
+                <div className="task-details">
+                  {task.description && (
+                    <div className="detail-section">
+                      <strong>📄 Mô tả:</strong>
+                      <p>{task.description}</p>
+                    </div>
+                  )}
+
+                  {/* Dates */}
+                  <div className="detail-row">
+                    {task.startDate && (
+                      <div className="detail-item">
+                        <strong>📅 Bắt đầu:</strong>
+                        <span>
+                          {new Date(task.startDate).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                    )}
+                    {task.dueDate && (
+                      <div className="detail-item">
+                        <strong>⏰ Deadline:</strong>
+                        <span
+                          className={
+                            task.isOverdue && !task.completed ? "overdue" : ""
+                          }
+                        >
+                          {new Date(task.dueDate).toLocaleDateString("vi-VN")}
+                          {task.isOverdue && !task.completed && " (Trễ hạn)"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Checklist */}
+                  {task.checklist && task.checklist.length > 0 && (
+                    <div className="detail-section">
+                      <div className="checklist-header">
+                        <strong>
+                          ✅ Checklist (
+                          {
+                            task.checklist.filter((item) => item.completed)
+                              .length
+                          }
+                          /{task.checklist.length}):
+                        </strong>
+                        {onMarkAllChecklist && (
+                          <button
+                            className="mark-all-btn"
+                            onClick={() => onMarkAllChecklist(task._id)}
+                            title={task.checklist.every(item => item.completed) ? "Bỏ hoàn thành tất cả" : "Hoàn thành tất cả"}
+                          >
+                            {task.checklist.every(item => item.completed) ? "↩️ Bỏ hoàn thành tất cả" : "✅ Hoàn thành tất cả"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="checklist">
+                        {task.checklist.map((item, index) => (
+                          <label key={index} className={`checklist-item ${item.completed ? 'completed' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={item.completed}
+                              onChange={() =>
+                                handleChecklistToggle(task._id, index)
+                              }
+                              className="checklist-checkbox"
+                            />
+                            <span className={item.completed ? "completed" : ""}>
+                              {item.text}
+                            </span>
+                            {item.completed && item.completedAt && (
+                              <span className="completed-time">
+                                ({new Date(item.completedAt).toLocaleDateString('vi-VN')})
+                              </span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {task.tags && task.tags.length > 0 && (
+                    <div className="detail-section">
+                      <strong>🏷️ Tags:</strong>
+                      <div className="tags">
+                        {task.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="tag"
+                            style={{ backgroundColor: tag.color }}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Board Card Component - CẬP NHẬT THÊM onViewDetail
-function TaskCard({ task, onToggle, onEdit, onDelete}) {
+// Board Card Component - CẬP NHẬT VỚI HÀM isTaskCompleted
+function TaskCard({ 
+  task, 
+  taskCompleted,
+  onToggle, 
+  onEdit, 
+  onDelete, 
+  onViewDetail,
+  onChecklistToggle,
+  onMarkAllChecklist
+}) {
+  const handleChecklistItemToggle = async (index) => {
+    await onChecklistToggle(task._id, index);
+  };
+
+  const handleMarkAllChecklist = async () => {
+    await onMarkAllChecklist(task._id);
+  };
+
   return (
     <div className="task-card">
       <div className="card-header">
         <div
-          className="card-checkbox"
+          className={`card-checkbox ${taskCompleted ? "checked" : ""}`}
           onClick={() => onToggle(task._id, task.completed)}
         >
-          {task.completed ? "✅" : "⭕"}
+          {taskCompleted ? "✓" : ""}
         </div>
         <div
           className="card-priority"
@@ -315,7 +414,9 @@ function TaskCard({ task, onToggle, onEdit, onDelete}) {
         </div>
       </div>
 
-      <h5 className="card-title">{task.title}</h5>
+      <h5 className={`card-title ${taskCompleted ? "completed" : ""}`}>
+        {task.title}
+      </h5>
 
       {task.dueDate && (
         <div className="card-due-date">
@@ -323,7 +424,47 @@ function TaskCard({ task, onToggle, onEdit, onDelete}) {
         </div>
       )}
 
+      {/* Checklist trong task card */}
+      {task.checklist && task.checklist.length > 0 && (
+        <div className="card-checklist-section">
+          <div className="checklist-progress">
+            <span className="progress-text">
+              {task.checklist.filter(item => item.completed).length}/
+              {task.checklist.length}
+            </span>
+            {task.checklist.every(item => item.completed) && (
+              <span className="all-completed-badge">✅ Tất cả</span>
+            )}
+          </div>
+          <div className="checklist-items">
+            {task.checklist.map((item, index) => (
+              <label key={index} className={`checklist-item ${item.completed ? 'completed' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => handleChecklistItemToggle(index)}
+                  className="checklist-checkbox"
+                />
+                <span className={item.completed ? "completed" : ""}>
+                  {item.text}
+                </span>
+              </label>
+            ))}
+          </div>
+          {onMarkAllChecklist && (
+            <button
+              className="mark-all-btn-small"
+              onClick={handleMarkAllChecklist}
+              title={task.checklist.every(item => item.completed) ? "Bỏ hoàn thành tất cả" : "Hoàn thành tất cả"}
+            >
+              {task.checklist.every(item => item.completed) ? "↩️ Bỏ tất cả" : "✅ Tất cả"}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="card-actions">
+        <button onClick={() => onViewDetail(task)}>👁️</button>
         <button onClick={() => onEdit(task)}>✏️</button>
         <button onClick={() => onDelete(task._id)}>🗑️</button>
       </div>

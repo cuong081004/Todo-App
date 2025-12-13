@@ -5191,3 +5191,328 @@ form.task-form-compact {
 .task-item.recurring-instance .task-actions:hover {
   opacity: 1;
 }
+
+/* ============================================
+   ADVANCED TASK CHECKBOX & TITLE FIX
+   ============================================ */
+
+/* Checkbox trong AdvancedTaskList */
+.advanced-task-list .task-checkbox {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--input-bg);
+  font-size: 16px;
+  font-weight: bold;
+  color: transparent;
+  flex-shrink: 0;
+}
+
+.advanced-task-list .task-checkbox:hover {
+  border-color: var(--button-bg);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.advanced-task-list .task-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+  transform: scale(1.1);
+}
+
+.advanced-task-list .task-checkbox.checked::after {
+  content: "✓";
+}
+
+/* Task title trong AdvancedTaskList */
+.advanced-task-list .task-title {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  line-height: 1.5;
+  color: var(--text) !important;
+  margin: 0 !important;
+  word-wrap: break-word;
+  text-decoration: none !important;
+  transition: all 0.3s ease;
+}
+
+.advanced-task-list .task-title.completed {
+  text-decoration: line-through !important;
+  color: #888 !important;
+  opacity: 0.7;
+}
+
+/* Task item background khi hoàn thành */
+.advanced-task-item.completed {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, var(--card) 5%) !important;
+  opacity: 0.8;
+  border-color: rgba(40, 167, 69, 0.3) !important;
+}
+
+/* Card checkbox trong board view */
+.task-card .card-checkbox {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: transparent;
+  transition: all 0.3s ease;
+  background: var(--input-bg);
+}
+
+.task-card .card-checkbox.checked {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+.task-card .card-checkbox.checked::after {
+  content: "✓";
+}
+
+/* Card title trong board view */
+.task-card .card-title {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  transition: all 0.3s ease;
+}
+
+.task-card .card-title.completed {
+  text-decoration: line-through;
+  color: #888;
+  opacity: 0.7;
+}
+
+/* Progress bar khi tất cả checklist hoàn thành */
+.progress-section .progress-fill {
+  background: var(--success);
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* All completed badge */
+.all-completed-badge {
+  background: rgba(40, 167, 69, 0.1);
+  color: var(--success);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+/* Mark all button */
+.mark-all-btn-small {
+  background: rgba(0, 123, 255, 0.1);
+  color: var(--button-bg);
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mark-all-btn-small:hover {
+  background: rgba(0, 123, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.mark-all-btn {
+  background: rgba(0, 123, 255, 0.1);
+  color: var(--button-bg);
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 12px;
+}
+
+.mark-all-btn:hover {
+  background: rgba(0, 123, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Checklist item completed style */
+.checklist-item .completed {
+  text-decoration: line-through;
+  opacity: 0.7;
+  color: var(--text);
+}
+
+/* Completed time in checklist */
+.completed-time {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.5;
+  margin-left: auto;
+  font-style: italic;
+}
+
+/* Checklist header */
+.checklist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Animation for task completion */
+@keyframes completePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.advanced-task-item.completed .task-checkbox.checked {
+  animation: completePulse 0.5s ease;
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+  .advanced-task-list .task-checkbox {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .advanced-task-list .task-title {
+    font-size: 15px !important;
+  }
+  
+  .checklist-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .mark-all-btn {
+    margin-left: 0;
+    align-self: flex-start;
+  }
+}
+
+/* Dark mode adjustments */
+body.dark .advanced-task-item.completed {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.15) 0%, var(--card) 5%) !important;
+}
+
+body.dark .advanced-task-list .task-title.completed {
+  color: #aaa !important;
+}
+
+body.dark .task-card .card-title.completed {
+  color: #aaa;
+}
+
+/* ============================================
+   CHECKLIST COMPLETED STYLES
+   ============================================ */
+
+.checklist-item.completed {
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.checklist-item.completed input[type="checkbox"] {
+  opacity: 0.7;
+}
+
+.checklist-item .completed {
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.advanced-task-item.completed .checklist-item {
+  opacity: 0.7;
+}
+
+.advanced-task-item.completed .checklist-item input[type="checkbox"] {
+  opacity: 0.7;
+}
+
+.task-card .checklist-item.completed {
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.task-card .checklist-item.completed input[type="checkbox"] {
+  opacity: 0.7;
+}
+
+/* Progress bar khi completed */
+.progress-fill.completed {
+  background: var(--success) !important;
+}
+
+/* Task completed styles */
+.advanced-task-item.completed {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, var(--card) 5%) !important;
+  opacity: 0.9;
+  border-color: rgba(40, 167, 69, 0.3) !important;
+}
+
+.advanced-task-item.completed .task-title {
+  text-decoration: line-through !important;
+  color: #888 !important;
+}
+
+.advanced-task-item.completed .task-meta {
+  opacity: 0.8;
+}
+
+/* Task card completed */
+.task-card.completed {
+  opacity: 0.9;
+  border-color: rgba(40, 167, 69, 0.3);
+}
+
+.task-card.completed .card-title {
+  text-decoration: line-through;
+  color: #888;
+}
+
+/* Animation for task completion */
+@keyframes completePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.advanced-task-item.completed .task-checkbox.checked {
+  animation: completePulse 0.5s ease;
+}
+
+/* Dark mode adjustments */
+body.dark .advanced-task-item.completed {
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.15) 0%, var(--card) 5%) !important;
+}
+
+body.dark .advanced-task-item.completed .task-title {
+  color: #aaa !important;
+}
+
+body.dark .task-card.completed .card-title {
+  color: #aaa;
+}

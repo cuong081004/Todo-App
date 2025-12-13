@@ -10,10 +10,9 @@ export default function AdvancedTaskPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [view, setView] = useState("list"); // 'list' or 'form'
+  const [view, setView] = useState("list");
   const [formLoading, setFormLoading] = useState(false);
   
-  // State cho modal và chỉnh sửa
   const [selectedTask, setSelectedTask] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -41,9 +40,47 @@ export default function AdvancedTaskPage() {
     }
   }, [token, selectedProject]);
 
+  // Initial fetch
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Đồng bộ dữ liệu khi có task update từ TaskList
+  useEffect(() => {
+    const handleTaskUpdated = async (event) => {
+      const updatedTaskId = event.detail?.taskId;
+      if (updatedTaskId) {
+        console.log('🔄 AdvancedTaskPage nhận task update:', updatedTaskId);
+        
+        // Refresh task list
+        await fetchTasks();
+        
+        // Nếu đang xem task đó trong modal, cập nhật
+        if (selectedTask && selectedTask._id === updatedTaskId) {
+          try {
+            const res = await axios.get(`/advanced-tasks/advanced`, {
+              headers: { Authorization: `Bearer ${token}` },
+              params: {
+                search: updatedTaskId,
+                limit: 1
+              }
+            });
+            if (res.data.data[0]) {
+              setSelectedTask(res.data.data[0]);
+            }
+          } catch (err) {
+            console.error('Không thể fetch task chi tiết:', err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('taskUpdated', handleTaskUpdated);
+    
+    return () => {
+      window.removeEventListener('taskUpdated', handleTaskUpdated);
+    };
+  }, [token, selectedTask, fetchTasks]);
 
   // Add new task
   const handleAddTask = async (taskData) => {
@@ -91,10 +128,9 @@ export default function AdvancedTaskPage() {
     setSelectedTask(null);
   };
 
-  // Cập nhật task sau khi chỉnh sửa - ĐÃ SỬA LỖI
+  // Cập nhật task sau khi chỉnh sửa
   const handleTaskUpdate = async (updatedTask) => {
     try {
-      // SỬ DỤNG ID TỪ editingTask THAY VÌ updatedTask
       const taskId = editingTask?._id;
       
       console.log("🔄 Updating task with ID:", taskId);
@@ -109,10 +145,8 @@ export default function AdvancedTaskPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Cập nhật state tasks
-      setTasks(prev => prev.map(t => 
-        t._id === taskId ? res.data.data : t
-      ));
+      // Refresh tasks để lấy dữ liệu mới
+      await fetchTasks();
       
       // Cập nhật selectedTask nếu đang mở modal
       if (selectedTask && selectedTask._id === taskId) {
@@ -147,32 +181,57 @@ export default function AdvancedTaskPage() {
     setView("list");
   };
 
-  // Toggle task completion
+  // Toggle task completion với xử lý checklist
   const handleToggle = async (id, completed) => {
     try {
+      const task = tasks.find(t => t._id === id);
+      if (!task) return;
+      
+      const newCompleted = !completed;
+      
+      // Nếu task có checklist và tất cả đã hoàn thành, thì task hoàn thành
+      let shouldComplete = newCompleted;
+      if (task.checklist && task.checklist.length > 0) {
+        const allChecklistCompleted = task.checklist.every(item => item.completed);
+        shouldComplete = allChecklistCompleted ? true : newCompleted;
+      }
+      
       const res = await axios.patch(
-        `/advanced-tasks/${id}/status`,
-        { status: completed ? "todo" : "done" },
+        `/advanced-tasks/${id}`,
+        { 
+          completed: shouldComplete,
+          status: shouldComplete ? "done" : "todo" 
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setTasks((prev) => prev.map((t) => (t._id === id ? res.data.data : t)));
+      
+      // QUAN TRỌNG: Gọi fetchTasks để lấy dữ liệu mới nhất từ server
+      await fetchTasks();
       
       // Cập nhật selectedTask nếu đang mở modal
       if (selectedTask && selectedTask._id === id) {
         setSelectedTask(res.data.data);
       }
+      
+      // Gửi event để calendar refresh
+      const detail = {
+        type: 'advancedTaskUpdated',
+        taskId: id,
+        completed: shouldComplete,
+        timestamp: new Date().toISOString()
+      };
+      
+      window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
+      
     } catch (err) {
       console.error("Toggle task error:", err);
       const errorMessage = err.response?.data?.message || "Không thể cập nhật trạng thái";
       alert(errorMessage);
-      // Rollback optimistic update
-      setTasks(prev => prev.map(t => 
-        t._id === id ? { ...t, completed: !completed } : t
-      ));
     }
   };
 
-  // Delete task - ĐÃ HOÀN THIỆN
+  // Delete task
   const handleDelete = async (id) => {
     const taskToDelete = tasks.find(t => t._id === id);
     
@@ -218,10 +277,8 @@ export default function AdvancedTaskPage() {
     handleCloseDetail();
   };
 
-  // Toggle checklist item
+  // Toggle checklist item với đồng bộ hoàn thành task
   const handleChecklistToggle = async (taskId, checklistIndex) => {
-    const originalTasks = [...tasks];
-    
     try {
       const task = tasks.find((t) => t._id === taskId);
       if (!task || !task.checklist || !task.checklist[checklistIndex]) {
@@ -230,48 +287,80 @@ export default function AdvancedTaskPage() {
 
       const completed = !task.checklist[checklistIndex].completed;
 
-      // Optimistic update
-      setTasks(prev =>
-        prev.map((t) => {
-          if (t._id === taskId) {
-            const updatedChecklist = [...t.checklist];
-            updatedChecklist[checklistIndex] = {
-              ...updatedChecklist[checklistIndex],
-              completed,
-              completedAt: completed ? new Date() : null
-            };
-            
-            const allCompleted = updatedChecklist.every(item => item.completed);
-            return {
-              ...t,
-              checklist: updatedChecklist,
-              completed: allCompleted,
-              status: allCompleted ? "done" : t.status
-            };
-          }
-          return t;
-        })
-      );
-
-      const res = await axios.patch(
+      // Gọi API cập nhật checklist item
+      await axios.patch(
         `/advanced-tasks/${taskId}/checklist`,
         { checklistIndex, completed },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setTasks(prev =>
-        prev.map((t) => (t._id === taskId ? res.data.data : t))
-      );
+      // QUAN TRỌNG: Refresh tasks để lấy dữ liệu mới
+      await fetchTasks();
 
-      // Cập nhật selectedTask nếu đang mở modal
-      if (selectedTask && selectedTask._id === taskId) {
-        setSelectedTask(res.data.data);
-      }
+      // Gửi event để calendar cập nhật
+      const detail = {
+        type: 'taskChecklistUpdated',
+        taskId,
+        completed,
+        timestamp: new Date().toISOString()
+      };
+      
+      window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
+      
     } catch (err) {
       console.error("Toggle checklist error:", err);
-      setTasks(originalTasks);
       const errorMessage = err.response?.data?.message || "Không thể cập nhật checklist";
       alert(errorMessage);
+    }
+  };
+
+  // Mark all checklist items as completed/uncompleted
+  const handleMarkAllChecklist = async (taskId) => {
+    try {
+      const task = tasks.find(t => t._id === taskId);
+      if (!task || !task.checklist || task.checklist.length === 0) return;
+      
+      const allCurrentlyCompleted = task.checklist.every(item => item.completed);
+      const newCompletedState = !allCurrentlyCompleted;
+      
+      // Gọi API để cập nhật tất cả checklist items
+      for (let i = 0; i < task.checklist.length; i++) {
+        await axios.patch(
+          `/advanced-tasks/${taskId}/checklist`,
+          { checklistIndex: i, completed: newCompletedState },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      
+      // Cập nhật task status nếu cần
+      await axios.patch(
+        `/advanced-tasks/${taskId}`,
+        { 
+          completed: newCompletedState,
+          status: newCompletedState ? 'done' : 'todo'
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // QUAN TRỌNG: Refresh tasks để lấy dữ liệu mới
+      await fetchTasks();
+      
+      // Gửi event
+      const detail = {
+        type: 'taskAllChecklistUpdated',
+        taskId,
+        completed: newCompletedState,
+        timestamp: new Date().toISOString()
+      };
+      
+      window.dispatchEvent(new CustomEvent('refreshCalendar', { detail }));
+      window.dispatchEvent(new CustomEvent('taskUpdated', { detail }));
+      
+    } catch (error) {
+      console.error('Mark all checklist error:', error);
+      // Rollback optimistic update
+      await fetchTasks();
     }
   };
 
@@ -376,6 +465,7 @@ export default function AdvancedTaskPage() {
               onEdit={handleEdit}
               onViewDetail={handleViewDetail}
               onChecklistToggle={handleChecklistToggle}
+              onMarkAllChecklist={handleMarkAllChecklist}
             />
           )}
         </div>
