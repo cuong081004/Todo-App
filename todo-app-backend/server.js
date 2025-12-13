@@ -103,7 +103,8 @@ if (!MONGODB_URI) {
 }
 
 console.log("🔗 Connecting to MongoDB...");
-console.log("📍 URI:", MONGODB_URI.replace(/:[^:@]+@/, ":****@")); // Hide password
+const maskedURI = MONGODB_URI ? '***' : 'not set';
+console.log("📍 URI configured:", !!MONGODB_URI);
 
 mongoose
   .connect(MONGODB_URI, {

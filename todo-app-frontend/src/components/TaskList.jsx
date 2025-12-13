@@ -1,5 +1,17 @@
 import { useState } from "react";
 
+// Hàm escape regex để tránh lỗi khi search có ký tự đặc biệt
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Hàm escape HTML để tránh XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 export default function TaskList({
   tasks,
   onToggle,
@@ -56,42 +68,83 @@ export default function TaskList({
     }
   };
 
-  // THÊM: Hàm highlight text (cho cả title và tags)
+  // SỬA: Hàm highlight text an toàn (cho cả title và tags)
   function highlightText(text, search) {
-    if (!search || !text) return text;
+    if (!search || !text) return escapeHtml(text);
 
-    const regex = new RegExp(`(${search})`, "gi");
-    const parts = text.split(regex);
+    try {
+      // Escape search term để tránh lỗi regex
+      const escapedSearch = escapeRegex(search);
+      const regex = new RegExp(`(${escapedSearch})`, "gi");
+      
+      // Escape toàn bộ text trước khi xử lý
+      const safeText = escapeHtml(text);
+      const parts = safeText.split(regex);
 
-    return parts.map((part, i) =>
-      part.toLowerCase() === search.toLowerCase() ? (
-        <mark key={i} style={{ backgroundColor: "yellow", padding: "0 2px" }}>
-          {part}
-        </mark>
-      ) : (
-        part
-      )
-    );
+      return parts.map((part, i) => {
+        // So sánh đã escape để tránh XSS
+        const safePart = escapeHtml(part);
+        const escapedSearchLower = escapeHtml(search.toLowerCase());
+        const partLower = escapeHtml(part.toLowerCase());
+        
+        return partLower === escapedSearchLower ? (
+          <mark key={i} style={{ backgroundColor: "yellow", padding: "0 2px" }}>
+            {safePart}
+          </mark>
+        ) : (
+          safePart
+        );
+      });
+    } catch (error) {
+      console.error("Error in highlightText:", error);
+      // Fallback: trả về text đã escape
+      return escapeHtml(text);
+    }
   }
 
-  // THÊM: Hàm kiểm tra tag có match với search không
+  // SỬA: Hàm kiểm tra tag có match với search không (an toàn)
   const isTagMatchSearch = (tag, search) => {
-    if (!search) return false;
-    return tag.name.toLowerCase().includes(search.toLowerCase());
+    if (!search || !tag || !tag.name) return false;
+    
+    try {
+      // Sử dụng includes thay vì regex để tránh lỗi
+      const safeTagName = tag.name.toLowerCase();
+      const safeSearch = search.toLowerCase();
+      return safeTagName.includes(safeSearch);
+    } catch (error) {
+      console.error("Error in isTagMatchSearch:", error);
+      return false;
+    }
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      
+      return date.toLocaleDateString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "";
+    }
   };
 
   const isOverdue = (task) => {
     if (!task.dueDate || task.completed) return false;
-    return new Date(task.dueDate) < new Date();
+    
+    try {
+      const dueDate = new Date(task.dueDate);
+      const now = new Date();
+      return dueDate < now;
+    } catch (error) {
+      console.error("Error checking overdue:", error);
+      return false;
+    }
   };
 
   return (
@@ -113,6 +166,7 @@ export default function TaskList({
                 maxLength={200}
                 className="edit-input"
                 autoFocus
+                aria-label="Sửa tiêu đề task"
               />
               
               <input
@@ -120,6 +174,7 @@ export default function TaskList({
                 value={editDueDate}
                 onChange={(e) => setEditDueDate(e.target.value)}
                 className="edit-date"
+                aria-label="Sửa ngày hết hạn"
               />
 
               {/* THÊM: Edit tags section */}
@@ -131,12 +186,14 @@ export default function TaskList({
                       key={index}
                       className="edit-tag"
                       style={{ backgroundColor: tag.color }}
+                      title={tag.name}
                     >
-                      {tag.name}
+                      {escapeHtml(tag.name)}
                       <button
                         type="button"
                         onClick={() => setEditTags(prev => prev.filter((_, i) => i !== index))}
                         className="remove-edit-tag-btn"
+                        aria-label={`Xóa tag ${tag.name}`}
                       >
                         ×
                       </button>
@@ -149,12 +206,14 @@ export default function TaskList({
                 <button 
                   onClick={() => saveEdit(task._id)}
                   className="save-btn"
+                  aria-label="Lưu thay đổi"
                 >
                   Lưu
                 </button>
                 <button 
                   onClick={cancelEditing}
                   className="cancel-btn"
+                  aria-label="Hủy thay đổi"
                 >
                   Hủy
                 </button>
@@ -173,6 +232,8 @@ export default function TaskList({
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') onToggle(task._id, task.completed);
                   }}
+                  aria-label={task.completed ? "Đánh dấu chưa hoàn thành" : "Đánh dấu hoàn thành"}
+                  aria-checked={task.completed}
                 >
                   {task.completed ? "✓" : ""}
                 </div>
@@ -187,6 +248,7 @@ export default function TaskList({
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') onToggle(task._id, task.completed);
                     }}
+                    aria-label={`Task: ${task.title}. Click để ${task.completed ? 'đánh dấu chưa hoàn thành' : 'đánh dấu hoàn thành'}`}
                   >
                     {highlightText(task.title, search)}
                   </span>
@@ -198,12 +260,19 @@ export default function TaskList({
                         {formatDate(task.dueDate)}
                       </span>
                     )}
-                    {isOverdue(task) && <span className="overdue-badge">Trễ hạn</span>}
+                    {isOverdue(task) && (
+                      <span 
+                        className="overdue-badge"
+                        aria-label="Task trễ hạn"
+                      >
+                        Trễ hạn
+                      </span>
+                    )}
                   </div>
 
                   {/* TAGS - CẢI THIỆN: highlight tags khi tìm kiếm */}
                   {task.tags?.length > 0 && (
-                    <div className="task-tags">
+                    <div className="task-tags" aria-label="Tags của task">
                       {task.tags.map((tag, i) => {
                         const isMatch = isTagMatchSearch(tag, search);
                         return (
@@ -216,6 +285,7 @@ export default function TaskList({
                               boxShadow: isMatch ? '0 0 8px #ffd700' : '0 4px 12px rgba(0, 0, 0, 0.3)'
                             }}
                             title={tag.name}
+                            aria-label={`Tag: ${tag.name}`}
                           >
                             {highlightText(tag.name, search)}
                           </span>
@@ -231,14 +301,14 @@ export default function TaskList({
                 <button 
                   onClick={() => startEditing(task)}
                   className="edit-btn"
-                  aria-label="Sửa"
+                  aria-label="Sửa task"
                 >
                   ✏️
                 </button>
                 <button 
                   onClick={() => onDelete(task._id)}
                   className="delete-btn"
-                  aria-label="Xóa"
+                  aria-label="Xóa task"
                 >
                   🗑️
                 </button>
