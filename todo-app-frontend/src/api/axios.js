@@ -1,22 +1,13 @@
-// import axios from 'axios';
-
-// const instance = axios.create({
-//   baseURL: 'http://localhost:5000/api', 
-//   // baseURL: 'https://todo-app-t1g9.onrender.com/api', 
-// });
-
-// export default instance;
-
 import axios from 'axios';
-
+  // baseURL: 'http://localhost:5000/api',
+// Tạo instance axios với timeout
+const API_URL = import.meta.env.VITE_API_URL || 'https://todo-app-t1g9.onrender.com/api';
 // Tạo instance axios với timeout
 const instance = axios.create({
-  // baseURL: 'http://localhost:5000/api',
-  baseURL: 'https://todo-app-t1g9.onrender.com/api', 
-  timeout: 30000, // TĂNG timeout lên 30 giây
+  baseURL: API_URL,
+  timeout: 30000,
   withCredentials: false,
 });
-
 // Request interceptor để thêm token
 instance.interceptors.request.use(
   (config) => {

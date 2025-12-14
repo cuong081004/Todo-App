@@ -8,8 +8,30 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 // CẢI THIỆN: Cấu hình CORS chi tiết hơn
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://todo-app-t1g9.onrender.com', // backend của bạn
+  process.env.CLIENT_URL, // biến môi trường
+  'https://todo-app-liard-omega.vercel.app' // cho phép tất cả subdomains của Vercel
+].filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Cho phép requests không có origin (server-to-server, mobile apps)
+    if (!origin) return callback(null, true);
+    
+    // Cho phép tất cả Vercel domains
+    if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`⚠️  CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
