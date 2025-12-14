@@ -2,9 +2,15 @@ import axios from 'axios';
 
 // Kiểm tra môi trường để sử dụng URL phù hợp
 const getBaseURL = () => {
+  // Nếu đang chạy trên Vercel, dùng Render backend
+  if (window.location.hostname.includes('vercel.app')) {
+    return 'https://todo-app-t1g9.onrender.com/api';
+  }
+  // Nếu là localhost
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
   }
+  // Mặc định dùng Render
   return 'https://todo-app-t1g9.onrender.com/api';
 };
 

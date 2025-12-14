@@ -10,31 +10,41 @@ const app = express();
 // CẢI THIỆN: Cấu hình CORS chi tiết hơn
 const corsOptions = {
   origin: function (origin, callback) {
-    // Cho phép tất cả các origin trong development
-    if (process.env.NODE_ENV === 'development') {
+    // Cho phép các origins sau:
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://todo-ivf9m1068-cuongs-projects-f0396875.vercel.app',
+      'https://todo-app-frontend.vercel.app',
+      'https://todo-app-seven-ashy.vercel.app'
+    ];
+    
+    // Cho phép cả requests không có origin (Postman, mobile apps, etc.)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // Trong production, chỉ cho phép các domain cụ thể
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'https://todo-app-seven-ashy.vercel.app',
-        'https://todo-app-frontend.vercel.app'
-      ];
-      
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200,
-  maxAge: 86400 // 24 giờ
+  maxAge: 86400
 };
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 // Security Middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
