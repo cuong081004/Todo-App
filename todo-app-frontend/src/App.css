@@ -5640,3 +5640,48 @@ body.dark .task-card.completed .card-title {
 .goal-card.dynamic:hover .goal-actions {
   opacity: 0.3;
 }
+
+/* ============================================
+   CONNECTION ERROR STYLES
+   ============================================ */
+
+.connection-error {
+  max-width: 600px;
+  margin: 100px auto;
+  padding: 40px;
+  text-align: center;
+  background: var(--card);
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.connection-error h1 {
+  color: var(--error);
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+.connection-error p {
+  margin: 10px 0;
+  color: var(--text);
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+.connection-error button {
+  margin-top: 30px;
+  padding: 12px 24px;
+  background: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.connection-error button:hover {
+  background: var(--button-hover);
+  transform: translateY(-2px);
+}

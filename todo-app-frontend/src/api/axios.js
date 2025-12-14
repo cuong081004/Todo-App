@@ -1,18 +1,16 @@
-// import axios from 'axios';
-
-// const instance = axios.create({
-//   baseURL: 'http://localhost:5000/api', 
-//   // baseURL: 'https://todo-app-t1g9.onrender.com/api', 
-// });
-
-// export default instance;
-
 import axios from 'axios';
+
+// Kiểm tra môi trường để sử dụng URL phù hợp
+const getBaseURL = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:5000/api';
+  }
+  return 'https://todo-app-t1g9.onrender.com/api';
+};
 
 // Tạo instance axios với timeout
 const instance = axios.create({
-  // baseURL: 'http://localhost:5000/api',
-  baseURL: 'https://todo-app-t1g9.onrender.com/api', 
+  baseURL: getBaseURL(),
   timeout: 30000, // TĂNG timeout lên 30 giây
   withCredentials: false,
 });
@@ -78,6 +76,9 @@ instance.interceptors.response.use(
       if (error.message.includes('Network Error')) {
         return Promise.reject(new Error('Cannot connect to server. Please check if the backend server is running.'));
       }
+      if (error.message.includes('Failed to fetch')) {
+        return Promise.reject(new Error('Cannot connect to server. Please check your internet connection.'));
+      }
       return Promise.reject(new Error('Network error. Please check your connection.'));
     }
     
@@ -91,7 +92,17 @@ instance.interceptors.response.use(
     if (error.response.status === 401) {
       console.warn('🔑 Authentication error - removing token');
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      localStorage.removeItem('user');
+      // Chỉ redirect nếu không ở trang login/register
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        window.location.href = '/login';
+      }
+    }
+    
+    // Xử lý CORS errors cụ thể
+    if (error.response.status === 403 && error.response.data?.message?.includes('CORS')) {
+      console.error('🔒 CORS error detected');
+      return Promise.reject(new Error('CORS error. Please check server configuration.'));
     }
     
     // Xử lý server errors

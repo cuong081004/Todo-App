@@ -9,16 +9,37 @@ const app = express();
 
 // CẢI THIỆN: Cấu hình CORS chi tiết hơn
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Cho phép tất cả các origin trong development
+    if (process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      // Trong production, chỉ cho phép các domain cụ thể
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'https://todo-app-seven-ashy.vercel.app',
+        'https://todo-app-frontend.vercel.app'
+      ];
+      
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 giờ
 };
 
 // Security Middleware
-app.use(helmet());
-app.use(cors(corsOptions)); // SỬA: Dùng corsOptions
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(cors(corsOptions));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -30,9 +51,6 @@ const limiter = rateLimit({
   }
 });
 app.use("/api/", limiter);
-
-// Handle preflight requests - SỬA: XÓA dòng app.options('*', ...)
-// app.options('*', cors(corsOptions)); // XÓA DÒNG NÀY
 
 // Body Parser
 app.use(express.json({ limit: "10mb" }));
@@ -59,6 +77,7 @@ app.get("/health", (req, res) => {
     status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV
   });
 });
 
@@ -107,6 +126,7 @@ if (!MONGODB_URI) {
 console.log("🔗 Connecting to MongoDB...");
 const maskedURI = MONGODB_URI ? '***' : 'not set';
 console.log("📍 URI configured:", !!MONGODB_URI);
+console.log("🌍 Environment:", process.env.NODE_ENV || "development");
 
 mongoose
   .connect(MONGODB_URI, {
@@ -135,7 +155,7 @@ mongoose
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
-      console.log(`🌍 CORS enabled for: ${corsOptions.origin}`);
+      console.log(`🌍 CORS enabled for multiple origins`);
       
       // Test server health
       console.log(`✅ Health check: http://localhost:${PORT}/health`);

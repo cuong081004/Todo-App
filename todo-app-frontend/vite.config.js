@@ -9,7 +9,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       devOptions: { 
         enabled: true,
-        type: 'module' // Thêm dòng này cho development
+        type: 'module'
       },
       manifest: {
         name: "Todo App",
@@ -31,15 +31,13 @@ export default defineConfig({
           }
         ]
       },
-      // QUAN TRỌNG: Sử dụng custom service worker
       srcDir: "src",
       filename: "sw.js",
-      strategies: "injectManifest", // Sử dụng injectManifest để dùng custom SW
+      strategies: "injectManifest",
       injectManifest: {
-        injectionPoint: undefined, // Cho phép custom hoàn toàn
+        injectionPoint: undefined,
       },
       workbox: {
-        // Chỉ định nghĩa runtime caching, không generate SW
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/tasks"),
@@ -53,4 +51,23 @@ export default defineConfig({
       }
     })
   ],
+  // Cấu hình build cho deployment
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          charts: ['recharts'],
+          calendar: ['react-calendar']
+        }
+      }
+    }
+  },
+  // Cấu hình preview server
+  preview: {
+    port: 5173,
+    host: true
+  }
 });
