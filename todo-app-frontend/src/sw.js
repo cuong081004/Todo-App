@@ -1,18 +1,57 @@
-console.log("🔧 Service Worker Loaded");
+// ============================================
+// SERVICE WORKER với Workbox injectManifest
+// ============================================
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { registerRoute } from 'workbox-routing';
+import { NetworkFirst, CacheFirst } from 'workbox-strategies';
+import { ExpirationPlugin } from 'workbox-expiration';
 
-// ---------------- INSTALL ----------------
-self.addEventListener("install", () => {
-  console.log("🚀 SW Installed");
-  self.skipWaiting();
-});
+console.log("🔧 Custom Service Worker with Workbox Loaded");
 
-// ---------------- ACTIVATE ----------------
-self.addEventListener("activate", () => {
-  console.log("🔧 SW Activated");
-  self.clients.claim();
-});
+// ============================================
+// 1. PRECACHE - Workbox sẽ inject manifest tại đây
+// ============================================
+// @ts-ignore
+precacheAndRoute(self.__WB_MANIFEST);
 
-// ---------------- PUSH EVENT ----------------
+// Cleanup old caches
+cleanupOutdatedCaches();
+
+// ============================================
+// 2. RUNTIME CACHING - API calls
+// ============================================
+registerRoute(
+  ({ url }) => url.origin === 'https://todo-app-t1g9.onrender.com' && url.pathname.startsWith('/api'),
+  new NetworkFirst({
+    cacheName: 'api-cache',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 5 * 60, // 5 minutes
+      }),
+    ],
+  })
+);
+
+// ============================================
+// 3. GOOGLE FONTS CACHING
+// ============================================
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com',
+  new CacheFirst({
+    cacheName: 'google-fonts-cache',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 10,
+        maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+      }),
+    ],
+  })
+);
+
+// ============================================
+// 4. PUSH NOTIFICATIONS
+// ============================================
 self.addEventListener("push", (event) => {
   console.log("📬 PUSH EVENT RECEIVED");
 
@@ -22,7 +61,6 @@ self.addEventListener("push", (event) => {
   }
 
   let payload;
-
   try {
     payload = event.data.json();
     console.log("✅ JSON payload:", payload);
@@ -59,7 +97,9 @@ self.addEventListener("push", (event) => {
   );
 });
 
-// ---------------- NOTIFICATION CLICK ----------------
+// ============================================
+// 5. NOTIFICATION CLICK
+// ============================================
 self.addEventListener("notificationclick", (event) => {
   console.log("🖱 Notification clicked:", event.notification.data);
   event.notification.close();
@@ -72,7 +112,6 @@ self.addEventListener("notificationclick", (event) => {
             return client.focus();
           }
         }
-
         if (self.clients.openWindow) {
           return self.clients.openWindow("/");
         }
@@ -80,15 +119,40 @@ self.addEventListener("notificationclick", (event) => {
   );
 });
 
-// ---------------- MESSAGE FROM CLIENT ----------------
-self.addEventListener("message", (msg) => {
-  console.log("📨 SW Message Received:", msg.data);
+// ============================================
+// 6. MESSAGE FROM CLIENT
+// ============================================
+self.addEventListener("message", (event) => {
+  console.log("📨 SW Message Received:", event.data);
 
-  if (msg.data?.type === "test-notification") {
-    self.registration.showNotification("🔔 Test thông báo", {
-      body: "Service Worker hoạt động tốt!",
-      icon: "/icons/pwa-192.png",
-      badge: "/icons/pwa-192.png",
-    });
+  if (event.data?.type === "test-notification") {
+    event.waitUntil(
+      self.registration.showNotification("🔔 Test thông báo", {
+        body: "Service Worker hoạt động tốt!",
+        icon: "/icons/pwa-192.png",
+        badge: "/icons/pwa-192.png",
+      })
+    );
   }
+
+  // SKIP_WAITING - force activate new SW immediately
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// ============================================
+// 7. INSTALL & ACTIVATE
+// ============================================
+self.addEventListener("install", () => {
+  console.log("🚀 SW Installing...");
+  self.skipWaiting(); // Force activate immediately
+});
+
+self.addEventListener("activate", (event) => {
+  console.log("🔧 SW Activated");
+  event.waitUntil(
+    // Take control of all pages immediately
+    self.clients.claim()
+  );
 });
