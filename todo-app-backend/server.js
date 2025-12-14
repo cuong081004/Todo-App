@@ -9,16 +9,47 @@ const app = express();
 
 // CẢI THIỆN: Cấu hình CORS chi tiết hơn
 const corsOptions = {
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  origin: function (origin, callback) {
+    // Cho phép các origins sau:
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://todo-ivf9m1068-cuongs-projects-f0396875.vercel.app',
+      'https://todo-app-frontend.vercel.app',
+      'https://todo-app-seven-ashy.vercel.app'
+    ];
+    
+    // Cho phép cả requests không có origin (Postman, mobile apps, etc.)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  maxAge: 86400
 };
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 // Security Middleware
-app.use(helmet());
-app.use(cors(corsOptions)); // SỬA: Dùng corsOptions
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+app.use(cors(corsOptions));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -30,9 +61,6 @@ const limiter = rateLimit({
   }
 });
 app.use("/api/", limiter);
-
-// Handle preflight requests - SỬA: XÓA dòng app.options('*', ...)
-// app.options('*', cors(corsOptions)); // XÓA DÒNG NÀY
 
 // Body Parser
 app.use(express.json({ limit: "10mb" }));
@@ -59,6 +87,7 @@ app.get("/health", (req, res) => {
     status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV
   });
 });
 
@@ -107,6 +136,7 @@ if (!MONGODB_URI) {
 console.log("🔗 Connecting to MongoDB...");
 const maskedURI = MONGODB_URI ? '***' : 'not set';
 console.log("📍 URI configured:", !!MONGODB_URI);
+console.log("🌍 Environment:", process.env.NODE_ENV || "development");
 
 mongoose
   .connect(MONGODB_URI, {
@@ -135,7 +165,7 @@ mongoose
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
-      console.log(`🌍 CORS enabled for: ${corsOptions.origin}`);
+      console.log(`🌍 CORS enabled for multiple origins`);
       
       // Test server health
       console.log(`✅ Health check: http://localhost:${PORT}/health`);
