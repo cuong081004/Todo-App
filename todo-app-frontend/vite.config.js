@@ -15,43 +15,37 @@ export default defineConfig({
         name: "Todo App",
         short_name: "Todo",
         description: "Ứng dụng quản lý công việc",
-        theme_color: "#ffffff",
+        theme_color: "#007bff",
         background_color: "#ffffff",
         display: "standalone",
+        start_url: "/",
+        scope: "/",
         icons: [
           {
             src: "/icons/pwa-192.png",
             sizes: "192x192",
-            type: "image/png"
+            type: "image/png",
+            purpose: "any maskable"
           },
           {
             src: "/icons/pwa-512.png",
             sizes: "512x512",
-            type: "image/png"
+            type: "image/png",
+            purpose: "any maskable"
           }
         ]
       },
+      // ✅ QUAN TRỌNG: Dùng injectManifest strategy
       srcDir: "src",
       filename: "sw.js",
       strategies: "injectManifest",
       injectManifest: {
-        injectionPoint: undefined,
-      },
-      workbox: {
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith("/tasks"),
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "tasks-cache",
-              expiration: { maxEntries: 50 }
-            }
-          }
-        ]
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Workbox sẽ inject manifest vào vị trí này trong sw.js
+        injectionPoint: undefined
       }
     })
   ],
-  // Cấu hình build cho deployment
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -65,7 +59,6 @@ export default defineConfig({
       }
     }
   },
-  // Cấu hình preview server
   preview: {
     port: 5173,
     host: true
