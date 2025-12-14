@@ -8,29 +8,53 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 
 // CẢI THIỆN: Cấu hình CORS chi tiết hơn
+const allowedOrigins = [
+  // Development
+  'http://localhost:5173',
+  'http://localhost:3000',
+  
+  // Production - CÁC DOMAIN CỦA BẠN
+  'https://todo-app-seven-ashy.vercel.app',
+  'https://todo-app-frontend.vercel.app',
+  'https://todo-app-frontend-ibblmchhy-cuongs-projects-f0396875.vercel.app',
+  
+  // Domain preview cũ
+  'https://todo-app-frontend-yioh8g4mv-cuongs-projects-f0396875.vercel.app',
+  
+  // Domain production MỚI
+  'https://todo-app-frontend-9410ky0s2-cuongs-projects-f0396875.vercel.app',
+  
+  // Render backend
+  'https://todo-app-t1g9.onrender.com'
+];
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // Cho phép tất cả các origin trong development
+    // Cho phép requests không có origin (server-to-server, curl, etc.)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    
+    // Cho phép tất cả trong development
     if (process.env.NODE_ENV === 'development') {
       callback(null, true);
+      return;
+    }
+    
+    // Kiểm tra origin có trong danh sách được phép
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
     } else {
-      // Trong production, chỉ cho phép các domain cụ thể
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'https://todo-app-seven-ashy.vercel.app',
-        'https://todo-app-frontend.vercel.app'
-      ];
-      
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+      console.log('❌ CORS blocked origin:', origin);
+      console.log('✅ Allowed origins:', allowedOrigins);
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Total-Count'],
   optionsSuccessStatus: 200,
   maxAge: 86400 // 24 giờ
 };
@@ -40,6 +64,9 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors(corsOptions));
+
+// Xử lý preflight OPTIONS requests
+app.options('*', cors(corsOptions));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -77,6 +104,21 @@ app.get("/health", (req, res) => {
     status: "OK",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    origin: req.headers.origin || 'none',
+    allowedOrigins: allowedOrigins
+  });
+});
+
+// Debug CORS endpoint
+app.get("/api/debug/cors", (req, res) => {
+  res.json({
+    success: true,
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin,
+    host: req.headers.host,
+    userAgent: req.headers['user-agent'],
+    allowedOrigins: allowedOrigins,
     environment: process.env.NODE_ENV
   });
 });
@@ -155,10 +197,11 @@ mongoose
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
-      console.log(`🌍 CORS enabled for multiple origins`);
+      console.log(`🌍 CORS enabled for:`, allowedOrigins);
       
       // Test server health
       console.log(`✅ Health check: http://localhost:${PORT}/health`);
+      console.log(`🔧 CORS debug: http://localhost:${PORT}/api/debug/cors`);
     });
     
     // Đợi kết nối ổn định trước khi truy cập db
