@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ProjectSidebar from "../../components/ProjectSidebar";
 import CreateProjectModal from "../../components/CreateProjectModal";
+import NotificationSubscribe from "../../components/NotificationSubscribe";
 import axios from "../../api/axios";
 import { useTheme } from "../../hooks/useTheme";
 
@@ -118,6 +119,7 @@ export default function TodoLayout() {
           </div>
 
           <div className="header-actions">
+            <NotificationSubscribe />
             <button onClick={toggleTheme} className="theme-toggle">
               {darkMode ? "🌞" : "🌙"}
             </button>

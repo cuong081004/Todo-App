@@ -2182,7 +2182,7 @@ form.task-form-compact {
 
 .stats-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -2428,7 +2428,7 @@ form.task-form-compact {
 /* User Stats Grid */
 .user-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 30px;
 }
@@ -2669,6 +2669,9 @@ form.task-form-compact {
   font-size: 1.1rem;
   color: var(--text);
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .goal-progress-text {
@@ -5639,4 +5642,60 @@ body.dark .task-card.completed .card-title {
 
 .goal-card.dynamic:hover .goal-actions {
   opacity: 0.3;
+}
+
+/* Notification Subscribe Styles */
+.notification-subscribe {
+  padding: 12px;
+  background: var(--card);
+  margin: 0 8px;
+}
+
+.notification-subscribe h3 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+}
+
+.notification-subscribe p {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.notification-controls button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.notification-controls .btn-primary {
+  background: var(--button-bg);
+  color: white;
+}
+
+.notification-controls .btn-warning {
+  background: #ffc107;
+  color: #000;
+}
+
+.notification-controls button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+.notification-controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notification-warning {
+  padding: 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  font-size: 12px;
 }
